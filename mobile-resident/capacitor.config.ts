@@ -1,8 +1,9 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
+  // appId is the permanent Play/Firebase identity: keep it (see android/app/build.gradle).
   appId: 'in.visitorpasses.resident',
-  appName: 'VisitorPasses Resident',
+  appName: 'ManageSociety Resident',
   webDir: 'www',
   // This app is a thin native shell around the live site -- it always loads
   // the real, currently-deployed web app rather than bundling a copy of it.
@@ -11,7 +12,7 @@ const config: CapacitorConfig = {
   // update needed. The .apk only needs rebuilding if the native shell itself
   // changes (icon, permissions, app name).
   server: {
-    url: 'https://visitorpasses.in/login/society?role=resident',
+    url: 'https://managesociety.in/login/society?role=resident',
     cleartext: false,
   },
 };

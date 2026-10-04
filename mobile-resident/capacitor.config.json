@@ -1,9 +1,9 @@
 {
 	"appId": "in.visitorpasses.resident",
-	"appName": "VisitorPasses Resident",
+	"appName": "ManageSociety Resident",
 	"webDir": "www",
 	"server": {
-		"url": "https://visitorpasses.in/login/society?role=resident",
+		"url": "https://managesociety.in/login/society?role=resident",
 		"cleartext": false
 	}
 }
