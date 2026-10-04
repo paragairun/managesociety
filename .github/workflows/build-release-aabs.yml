@@ -1,36 +1,92 @@
 name: Build Release AABs (Play Store)
 
-# Builds signed .aab (Android App Bundle) files -- the format Google Play
-# requires for new app submissions. Unlike the debug .apk workflow, this
-# signs with your real, private release keystores, which live ONLY as
-# GitHub encrypted secrets, never committed to the repo.
+# Builds signed .aab files (the format Google Play requires) for BOTH apps:
+# ManageSociety Guard and ManageSociety Resident. Each app opens the live
+# website (capacitor.config.ts server.url), so web changes reach the apps as
+# soon as the site deploys; a new AAB is only needed for native changes
+# (icon, name, permissions, push setup...).
 #
-# One-time setup required before this works -- add these repo secrets
-# (Settings -> Secrets and variables -> Actions -> New repository secret):
+# VERSIONS ARE AUTOMATIC (no more editing build.gradle):
+#   versionCode = minutes since 2024-01-01 UTC: always higher than any earlier
+#                 build, as Play requires (it refuses a reused or lower code).
+#   versionName = the "version_name" box when run by hand, else <date>.<run>.
+#   Both apps get the same version in a run.
 #
-#   RESIDENT_KEYSTORE_BASE64   (contents of resident-release.keystore.base64.txt)
-#   RESIDENT_STORE_PASSWORD
-#   RESIDENT_KEY_ALIAS          -> visitorpasses-resident
-#   RESIDENT_KEY_PASSWORD       (same as store password for these keystores)
+# SAFETY CHECKS (a build fails rather than ship something Play/users can't use):
+#   - each app must keep its permanent application id (in.visitorpasses.guard /
+#     in.visitorpasses.resident). Play only accepts updates with the SAME id and
+#     google-services.json (push) is registered for it; renaming it broke the
+#     builds on 2026-10-04.
+#   - each app must open its managesociety.in login URL.
+#   - the finished bundle is inspected with Google's bundletool: package name,
+#     versionCode, versionName and icon are checked and printed on the run's
+#     summary page.
 #
-#   GUARD_KEYSTORE_BASE64      (contents of guard-release.keystore.base64.txt)
-#   GUARD_STORE_PASSWORD
-#   GUARD_KEY_ALIAS             -> visitorpasses-guard
-#   GUARD_KEY_PASSWORD
+# One-time setup -- repo secrets (Settings -> Secrets and variables -> Actions):
+#   RESIDENT_KEYSTORE_BASE64, RESIDENT_STORE_PASSWORD, RESIDENT_KEY_ALIAS, RESIDENT_KEY_PASSWORD
+#   GUARD_KEYSTORE_BASE64,    GUARD_STORE_PASSWORD,    GUARD_KEY_ALIAS,    GUARD_KEY_PASSWORD
 #
-# Output: each run produces two .aab files under the run's Artifacts section,
-# ready to upload directly to Play Console.
+# Output: two .aab files under the run's Artifacts, ready for Play Console.
 
 on:
   workflow_dispatch:
+    inputs:
+      version_name:
+        description: "Version name shown to users (optional, e.g. 3.1). Leave empty for <date>.<run>."
+        required: false
+        default: ""
+
+env:
+  SITE: https://managesociety.in
+  BUNDLETOOL_VERSION: 1.18.1
 
 jobs:
-  build-resident-release:
+  version:
     runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.v.outputs.code }}
+      name: ${{ steps.v.outputs.name }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Compute app version
+        id: v
+        env:
+          INPUT_VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+          # Minutes since 2024-01-01T00:00:00Z: increases every build, never reused.
+          CODE=$(( ( $(date -u +%s) - 1704067200 ) / 60 ))
+          if [[ -n "${INPUT_VERSION_NAME}" ]]; then NAME="${INPUT_VERSION_NAME}"; else NAME="$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}"; fi
+          if ! [[ "${NAME}" =~ ^[0-9A-Za-z._-]{1,40}$ ]]; then
+            echo "::error::Invalid version name '${NAME}' (letters, digits, . _ - only)"; exit 1
+          fi
+          echo "code=${CODE}" >> "$GITHUB_OUTPUT"
+          echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+          echo "Version ${NAME} (versionCode ${CODE})"
 
-      - uses: actions/setup-java@v4
+  build:
+    needs: version
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - role: resident
+            app_id: in.visitorpasses.resident
+            secret_prefix: RESIDENT
+          - role: guard
+            app_id: in.visitorpasses.guard
+            secret_prefix: GUARD
+    env:
+      APP_DIR: mobile-${{ matrix.role }}
+      APP_ID: ${{ matrix.app_id }}
+      EXPECTED_URL: https://managesociety.in/login/society?role=${{ matrix.role }}
+      VERSION_CODE: ${{ needs.version.outputs.code }}
+      VERSION_NAME: ${{ needs.version.outputs.name }}
+    name: build-${{ matrix.role }}-release
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -38,71 +94,75 @@ jobs:
       - uses: android-actions/setup-android@v3
 
       - name: Install dependencies
-        working-directory: mobile-resident
+        working-directory: ${{ env.APP_DIR }}
         run: npm install
 
       - name: Sync Capacitor config into native project
-        working-directory: mobile-resident
+        working-directory: ${{ env.APP_DIR }}
         run: npx cap sync android
 
+      - name: Check app identity and website
+        run: |
+          set -euo pipefail
+          CFG="${APP_DIR}/android/app/src/main/assets/capacitor.config.json"
+          URL=$(jq -r '.server.url // empty' "$CFG"); CAP_ID=$(jq -r '.appId // empty' "$CFG")
+          GRADLE_ID=$(sed -nE 's/^\s*applicationId\s+"([^"]+)".*/\1/p' "${APP_DIR}/android/app/build.gradle")
+          echo "applicationId=${GRADLE_ID} appId=${CAP_ID} server.url=${URL}"
+          [[ "${GRADLE_ID}" == "${APP_ID}" && "${CAP_ID}" == "${APP_ID}" ]] || {
+            echo "::error::Application id must stay ${APP_ID} (build.gradle: '${GRADLE_ID}', capacitor: '${CAP_ID}'). Play only accepts updates with the same id, and google-services.json is registered for it."; exit 1; }
+          [[ "${URL}" == "${EXPECTED_URL}" ]] || {
+            echo "::error::The app would open '${URL}', expected ${EXPECTED_URL}. Check ${APP_DIR}/capacitor.config.ts."; exit 1; }
+          jq -e --arg id "${APP_ID}" '[.client[].client_info.android_client_info.package_name] | index($id)' \
+            "${APP_DIR}/android/app/google-services.json" > /dev/null || {
+            echo "::error::google-services.json has no client for ${APP_ID} (push notifications / build would fail)."; exit 1; }
+
       - name: Decode release keystore
-        working-directory: mobile-resident/android/app
-        run: echo "${{ secrets.RESIDENT_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+        working-directory: ${{ env.APP_DIR }}/android/app
+        run: echo "${{ secrets[format('{0}_KEYSTORE_BASE64', matrix.secret_prefix)] }}" | base64 -d > release.keystore
 
       - name: Build release AAB
-        working-directory: mobile-resident/android
+        working-directory: ${{ env.APP_DIR }}/android
         env:
           SIGNING_KEYSTORE_PATH: release.keystore
-          SIGNING_STORE_PASSWORD: ${{ secrets.RESIDENT_STORE_PASSWORD }}
-          SIGNING_KEY_ALIAS: ${{ secrets.RESIDENT_KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD: ${{ secrets.RESIDENT_KEY_PASSWORD }}
+          SIGNING_STORE_PASSWORD: ${{ secrets[format('{0}_STORE_PASSWORD', matrix.secret_prefix)] }}
+          SIGNING_KEY_ALIAS: ${{ secrets[format('{0}_KEY_ALIAS', matrix.secret_prefix)] }}
+          SIGNING_KEY_PASSWORD: ${{ secrets[format('{0}_KEY_PASSWORD', matrix.secret_prefix)] }}
         run: |
           chmod +x gradlew
-          ./gradlew bundleRelease
+          ./gradlew bundleRelease -PappVersionCode="${VERSION_CODE}" -PappVersionName="${VERSION_NAME}"
+
+      - name: Clean up keystore
+        if: always()
+        run: rm -f "${APP_DIR}/android/app/release.keystore"
+
+      - name: Inspect the finished bundle
+        run: |
+          set -euo pipefail
+          AAB="${APP_DIR}/android/app/build/outputs/bundle/release/app-release.aab"
+          curl -sSL -o bundletool.jar "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar"
+          java -jar bundletool.jar dump manifest --bundle="$AAB" > manifest.txt
+          java -jar bundletool.jar dump resources --bundle="$AAB" --resource=mipmap/ic_launcher > icon.txt || true
+          # Match exact attributes. (roundIcon sits on the same printed line as icon.)
+          grep -qE "package=\"${APP_ID//./\\.}\"" manifest.txt || { echo "::error::Bundle package is not ${APP_ID}"; grep -o 'package="[^"]*"' manifest.txt || true; exit 1; }
+          grep -qE "versionCode=\"${VERSION_CODE}\"" manifest.txt || { echo "::error::Bundle versionCode is not ${VERSION_CODE}"; grep -o 'versionCode="[^"]*"' manifest.txt || true; exit 1; }
+          grep -qF "versionName=\"${VERSION_NAME}\"" manifest.txt || { echo "::error::Bundle versionName is not ${VERSION_NAME}"; grep -o 'versionName="[^"]*"' manifest.txt || true; exit 1; }
+          grep -qE '(^|[[:space:]:])icon="@mipmap/ic_launcher"' manifest.txt || { echo "::error::App icon is not @mipmap/ic_launcher"; grep -io '[a-z:]*icon="[^"]*"' manifest.txt || true; exit 1; }
+          {
+            echo "### ${APP_DIR}: ${VERSION_NAME} (versionCode ${VERSION_CODE})"
+            echo ""
+            echo "- Package: ${APP_ID} | Opens: ${EXPECTED_URL}"
+            echo '```'
+            grep -oE '(package|android:versionCode|android:versionName|android:icon|android:roundIcon|android:label)="[^"]*"' manifest.txt
+            echo '```'
+            echo "- Launcher icon files in the bundle:"
+            echo '```'
+            cat icon.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
-          name: visitorpasses-resident-release-aab
-          path: mobile-resident/android/app/build/outputs/bundle/release/app-release.aab
-
-  build-guard-release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - uses: android-actions/setup-android@v3
-
-      - name: Install dependencies
-        working-directory: mobile-guard
-        run: npm install
-
-      - name: Sync Capacitor config into native project
-        working-directory: mobile-guard
-        run: npx cap sync android
-
-      - name: Decode release keystore
-        working-directory: mobile-guard/android/app
-        run: echo "${{ secrets.GUARD_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
-
-      - name: Build release AAB
-        working-directory: mobile-guard/android
-        env:
-          SIGNING_KEYSTORE_PATH: release.keystore
-          SIGNING_STORE_PASSWORD: ${{ secrets.GUARD_STORE_PASSWORD }}
-          SIGNING_KEY_ALIAS: ${{ secrets.GUARD_KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD: ${{ secrets.GUARD_KEY_PASSWORD }}
-        run: |
-          chmod +x gradlew
-          ./gradlew bundleRelease
-
-      - name: Upload AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: visitorpasses-guard-release-aab
-          path: mobile-guard/android/app/build/outputs/bundle/release/app-release.aab
+          name: managesociety-${{ matrix.role }}-${{ needs.version.outputs.name }}-vc${{ needs.version.outputs.code }}
+          path: ${{ env.APP_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
