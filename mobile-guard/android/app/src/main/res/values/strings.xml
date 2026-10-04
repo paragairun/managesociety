@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">VisitorPasses Guard</string>
-    <string name="title_activity_main">VisitorPasses Guard</string>
+    <string name="app_name">ManageSociety Guard</string>
+    <string name="title_activity_main">ManageSociety Guard</string>
     <string name="package_name">in.visitorpasses.guard</string>
     <string name="custom_url_scheme">in.visitorpasses.guard</string>
 </resources>
