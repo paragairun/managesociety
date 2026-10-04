@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">VisitorPasses Resident</string>
-    <string name="title_activity_main">VisitorPasses Resident</string>
+    <string name="app_name">ManageSociety Resident</string>
+    <string name="title_activity_main">ManageSociety Resident</string>
     <string name="package_name">in.visitorpasses.resident</string>
     <string name="custom_url_scheme">in.visitorpasses.resident</string>
 </resources>
