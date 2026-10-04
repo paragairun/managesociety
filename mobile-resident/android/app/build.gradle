@@ -1,7 +1,22 @@
 apply plugin: 'com.android.application'
 
+// ── App identity: DO NOT CHANGE ──────────────────────────────────────────────
+// applicationId "in.visitorpasses.resident" is this app's permanent identity on
+// Google Play: Play only accepts updates with the SAME id, and
+// google-services.json (Firebase / push) is registered for this id. Renaming
+// it to in.managesociety.resident broke every build and would have made Play treat
+// the bundle as a different app. The name users see (app_name in
+// res/values/strings.xml, appName in capacitor.config.ts) can change freely.
+//
+// ── App version ──────────────────────────────────────────────────────────────
+// The release workflow (.github/workflows/build-release-aabs.yml) passes
+// -PappVersionCode / -PappVersionName on every build; nothing to edit here.
+// Local builds use these defaults.
+def appVersionCode = (project.findProperty('appVersionCode') ?: '3').toString().toInteger()
+def appVersionName = (project.findProperty('appVersionName') ?: '3.0').toString()
+
 android {
-    namespace = "in.managesociety.resident"
+    namespace = "in.visitorpasses.resident"
     compileSdk = rootProject.ext.compileSdkVersion
     // Explicit, committed debug keystore so every build (local or CI) signs
     // with the SAME certificate -- otherwise Gradle auto-generates a NEW,
@@ -25,11 +40,11 @@ android {
         }
     }
     defaultConfig {
-        applicationId "in.managesociety.resident"
+        applicationId "in.visitorpasses.resident"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "3.0"
+        versionCode appVersionCode
+        versionName appVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
