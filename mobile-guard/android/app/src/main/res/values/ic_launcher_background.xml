@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <!-- Adaptive icon background: the ManageSociety logo yellow (shows only
+         at the edges during launcher animations; the logo fills the icon). -->
+    <color name="ic_launcher_background">#F2B83B</color>
 </resources>
