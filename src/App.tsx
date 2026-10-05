@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { FingerprintProvider } from "@/contexts/FingerprintContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import GuardLogin from "./pages/GuardLogin";
 import GuardDashboard from "./pages/GuardDashboard";
@@ -55,6 +56,7 @@ const App = () => (
       <BrowserRouter>
         <GAPageTracker />
         <AuthProvider>
+          <FingerprintProvider>
           <main>
           <Routes>
             <Route path="/" element={<Index />} />
@@ -119,6 +121,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           </main>
+          </FingerprintProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
