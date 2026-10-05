@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ScanLine, Check, X, LogOut, Car, Search, ClipboardList, Radio, Package, Home } from "lucide-react";
+import { ScanLine, Check, X, LogOut, Car, Search, ClipboardList, Radio, Package, Home, Fingerprint } from "lucide-react";
 import VehicleSearch from "@/components/VehicleSearch";
 import GateActivity from "@/components/GateActivity";
 import GuardHome from "@/components/GuardHome";
@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StatusBadge from "@/components/StatusBadge";
 import QrScanner from "@/components/QrScanner";
+import { getFingerprintDriver, FingerprintError, MATCH_THRESHOLD, type Candidate } from "@/lib/fingerprint";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -32,6 +33,7 @@ const NAV: NavItem[] = [
 const GuardDashboard = () => {
   const [activeView, setActiveView] = useState("home");
   const [scanning, setScanning] = useState(false);
+  const [fingerScanning, setFingerScanning] = useState(false);
   const [deliveryFormTrigger, setDeliveryFormTrigger] = useState(0);
   const [visitors, setVisitors] = useState<VisitorRequest[]>([]);
   const [liveVehicles, setLiveVehicles] = useState<EntryLog[]>([]);
@@ -118,6 +120,97 @@ const GuardDashboard = () => {
     return true;
   };
 
+
+  /**
+   * Log an entry/exit for an identified staff member or house help.
+   * Shared by the QR path and the fingerprint path so the toggle logic
+   * (last action was entry -> this is an exit) can never diverge.
+   */
+  const logStaffMovement = async (
+    member: { id: string; name: string; role: string },
+    category: "society_staff" | "house_help",
+    method: "qr" | "fingerprint",
+    extra?: { score?: number; device?: string },
+  ) => {
+    if (!societyId) { toast({ title: "Society not loaded", variant: "destructive" }); return; }
+    const { data: lastLog } = await supabase
+      .from("staff_logs").select("action_type")
+      .eq("staff_id", member.id)
+      .order("timestamp", { ascending: false }).limit(1).maybeSingle();
+    const action = lastLog?.action_type === "entry" ? "exit" : "entry";
+    await supabase.from("staff_logs").insert({
+      society_id: societyId, category, staff_id: member.id,
+      action_type: action, logged_by: user?.id ?? null,
+      entry_method: method,
+      match_score: extra?.score ?? null,
+      device_model: extra?.device ?? null,
+    });
+    const icon = action === "entry" ? "\u2705 Entry" : "\uD83D\uDEAA Exit";
+    const via = method === "fingerprint" ? " \u00b7 fingerprint" : "";
+    setScanResult(`${icon} — ${member.name} (${member.role})${via}`);
+    toast({ title: `${action === "entry" ? "Entry" : "Exit"} logged`, description: `${member.name} — ${member.role}` });
+    setTimeout(() => setScanResult(null), 5000);
+  };
+
+  /**
+   * Fingerprint entry. Pulls the society's enrolled templates from the
+   * guard-safe view (no ID numbers or addresses in it), captures one
+   * impression and asks the driver to identify it. Falls back to QR on
+   * any failure — the gate must never be blocked by a dirty sensor.
+   */
+  const handleFingerprintEntry = async () => {
+    if (!societyId) { toast({ title: "Society not loaded", variant: "destructive" }); return; }
+    setFingerScanning(true);
+    try {
+      const driver = getFingerprintDriver();
+      if (!(await driver.isAvailable())) {
+        throw new FingerprintError("Scanner not reachable. Use the QR card instead.", "unavailable");
+      }
+
+      const { data, error } = await supabase
+        .from("gate_fingerprint_candidates")
+        .select("enrollment_id, subject_id, subject_category, finger_position, template, name, role")
+        .eq("society_id", societyId);
+      if (error) throw new FingerprintError(error.message, "driver_error");
+
+      const candidates: Candidate[] = (data ?? []).map((r: Record<string, unknown>) => ({
+        enrollmentId: String(r.enrollment_id),
+        subjectId: String(r.subject_id),
+        subjectCategory: r.subject_category as "society_staff" | "house_help",
+        fingerPosition: Number(r.finger_position),
+        template: String(r.template),
+        name: String(r.name),
+        role: String(r.role),
+      }));
+
+      if (candidates.length === 0) {
+        throw new FingerprintError("Nobody has enrolled a fingerprint yet.", "driver_error");
+      }
+
+      const capture = await driver.capture();
+      const match = await driver.identify(capture, candidates);
+
+      if (!match) {
+        setScanResult("\u274c Fingerprint not recognised. Try again or scan the QR card.");
+        toast({ title: "No match", description: `No enrolled finger matched (threshold ${MATCH_THRESHOLD}%).`, variant: "destructive" });
+        setTimeout(() => setScanResult(null), 5000);
+        return;
+      }
+
+      await logStaffMovement(
+        { id: match.candidate.subjectId, name: match.candidate.name, role: match.candidate.role },
+        match.candidate.subjectCategory,
+        "fingerprint",
+        { score: Math.round(match.score), device: capture.deviceModel },
+      );
+    } catch (err) {
+      const fe = err as FingerprintError;
+      toast({ title: "Fingerprint entry failed", description: fe.message, variant: "destructive" });
+    } finally {
+      setFingerScanning(false);
+    }
+  };
+
   const handleScan = async (result: string) => {
     setScanning(false);
 
@@ -134,19 +227,7 @@ const GuardDashboard = () => {
         setTimeout(() => setScanResult(null), 5000);
         return;
       }
-      const { data: lastLog } = await supabase
-        .from("staff_logs").select("action_type")
-        .eq("staff_id", member.id)
-        .order("timestamp", { ascending: false }).limit(1).maybeSingle();
-      const action = lastLog?.action_type === "entry" ? "exit" : "entry";
-      await supabase.from("staff_logs").insert({
-        society_id: societyId, category, staff_id: member.id,
-        action_type: action, logged_by: user?.id ?? null,
-      });
-      setScanResult(`${action === "entry" ? "✅ Entry" : "🚪 Exit"} — ${member.name} (${member.role})`);
-      toast({ title: `${action === "entry" ? "Entry" : "Exit"} logged`, description: `${member.name} — ${member.role}` });
-      setTimeout(() => setScanResult(null), 5000);
-      return;
+      await logStaffMovement(member, category, "qr");
     }
 
     // Guest pass QR
@@ -227,9 +308,15 @@ const GuardDashboard = () => {
             <p className="text-sm text-muted-foreground">Scan a vehicle, staff or guest QR</p>
             <p className="text-base font-semibold text-foreground">Tap to start scanning</p>
           </div>
-          <Button size="lg" onClick={() => setScanning(true)} className="gap-2 text-base font-bold animate-pulse-glow">
-            <ScanLine className="h-5 w-5" /> Scan QR
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 items-center">
+            <Button size="lg" onClick={() => setScanning(true)} className="gap-2 text-base font-bold animate-pulse-glow">
+              <ScanLine className="h-5 w-5" /> Scan QR
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => void handleFingerprintEntry()} disabled={fingerScanning} className="gap-2 text-base font-bold">
+              <Fingerprint className="h-5 w-5" />
+              {fingerScanning ? "Place finger\u2026" : "Fingerprint"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
       {scanResult && (

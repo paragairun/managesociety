@@ -6,6 +6,7 @@ import CsvUpload from "@/components/CsvUpload";
 import BulkResidentUpload from "@/components/BulkResidentUpload";
 import AccessLogsViewer from "@/components/AccessLogsViewer";
 import UserRegistry from "@/components/UserRegistry";
+import GuardRegistry from "@/components/GuardRegistry";
 import VehicleChangeRequestsAdmin from "@/components/VehicleChangeRequestsAdmin";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -593,6 +594,7 @@ const AdminPanel = () => {
       {activeView === "vehicle-requests" && <VehicleChangeRequestsAdmin onChanged={() => { void fetchAdminData(false); }} />}
       {activeView === "access-logs" && <AccessLogsViewer />}
       {activeView === "users" && <UserRegistry />}
+      {activeView === "guards" && <GuardRegistry />}
       {activeView === "visitor-qr" && renderVisitorQr()}
       {activeView === "barriers" && <BarrierDevicesAdmin />}
       {activeView === "staff" && <SocietyStaffManager />}
