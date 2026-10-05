@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, Trash2, UserCheck, UserX, IdCard } from "lucide-react";
+import { Plus, Trash2, UserCheck, UserX, IdCard, Fingerprint, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,15 +10,18 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import StaffIdCard from "@/components/StaffIdCard";
+import StaffProfileFields, { emptyProfileFields, validateProfileFields, profileFieldsToRow, type ProfileFieldValues } from "@/components/StaffProfileFields";
+import FingerprintEnroll from "@/components/FingerprintEnroll";
+import StaffBulkUpload from "@/components/StaffBulkUpload";
 
 const STAFF_TYPES = ["Security", "Housekeeping", "Accountant", "Facility Manager", "Electrician", "Plumber", "Gardener", "Lift Operator", "Other"];
 
 interface StaffMember {
   id: string; name: string; staff_type: string; phone: string | null;
-  photo_base64: string | null; qr_code: string; is_active: boolean; created_at: string;
+  photo_base64: string | null; qr_code: string; is_active: boolean; fingerprint_enrolled?: boolean; created_at: string;
 }
 
-const emptyForm = () => ({ name: "", staff_type: "", phone: "", photo_base64: "" });
+const emptyForm = () => ({ name: "", staff_type: "", phone: "", photo_base64: "", ...emptyProfileFields() });
 
 const SocietyStaffManager = () => {
   const { societyId, societyName } = useAuth();
@@ -30,6 +33,8 @@ const SocietyStaffManager = () => {
   const [showIdCard, setShowIdCard] = useState<StaffMember | null>(null);
   const [form, setForm] = useState(emptyForm());
   const fileRef = useRef<HTMLInputElement>(null);
+  const [fingerprintFor, setFingerprintFor] = useState<{ id: string; name: string } | null>(null);
+  const [showImport, setShowImport] = useState(false);
 
   const fetchStaff = useCallback(async () => {
     if (!societyId) return;
@@ -53,11 +58,14 @@ const SocietyStaffManager = () => {
   const handleAdd = async () => {
     if (!form.name.trim()) { toast({ title: "Enter staff name", variant: "destructive" }); return; }
     if (!form.staff_type) { toast({ title: "Select staff type", variant: "destructive" }); return; }
+    const problem = validateProfileFields(form);
+    if (problem) { toast({ title: problem, variant: "destructive" }); return; }
     if (!societyId) return;
     setSaving(true);
     const { error } = await supabase.from("staff_members").insert({
       society_id: societyId, name: form.name.trim(), staff_type: form.staff_type,
       phone: form.phone.trim() || null, photo_base64: form.photo_base64 || null, qr_code: generateQr(),
+      ...profileFieldsToRow(form),
     });
     setSaving(false);
     if (error) { toast({ title: "Failed to add staff", description: error.message, variant: "destructive" }); return; }
@@ -82,11 +90,21 @@ const SocietyStaffManager = () => {
     <Card>
       <CardHeader className="pb-3 flex flex-row items-center justify-between">
         <CardTitle className="text-base">Society Staff</CardTitle>
-        <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1">
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setShowImport((v) => !v)} className="gap-1">
+            <FileSpreadsheet className="h-4 w-4" /> Import
+          </Button>
+          <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1">
           <Plus className="h-4 w-4" /> Add Staff
         </Button>
+        </div>
       </CardHeader>
       <CardContent>
+        {showImport && (
+          <div className="mb-4">
+            <StaffBulkUpload kind="staff" defaultRoleType="Other" onComplete={() => { setShowImport(false); void fetchStaff(); }} />
+          </div>
+        )}
         {loading ? (
           <div className="py-8 flex justify-center"><div className="h-6 w-6 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>
         ) : staff.length === 0 ? (
@@ -109,6 +127,9 @@ const SocietyStaffManager = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => setFingerprintFor({ id: s.id, name: s.name })} aria-label="Fingerprints" title={s.fingerprint_enrolled ? "Fingerprint enrolled" : "Enrol fingerprint"}>
+                    <Fingerprint className={`h-4 w-4 ${s.fingerprint_enrolled ? "text-success" : "text-muted-foreground"}`} />
+                  </Button>
                   <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setShowIdCard(s)} title="View ID Card">
                     <IdCard className="h-4 w-4" />
                   </Button>
@@ -126,7 +147,7 @@ const SocietyStaffManager = () => {
       </CardContent>
 
       <Dialog open={showAdd} onOpenChange={(o) => !o && setShowAdd(false)}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Add Society Staff</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1"><Label>Name *</Label><Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Full name" /></div>
@@ -150,7 +171,8 @@ const SocietyStaffManager = () => {
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <StaffProfileFields values={form} onChange={(v) => setForm((p) => ({ ...p, ...v }))} />
+            <DialogFooter>
             <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
             <Button onClick={() => void handleAdd()} disabled={saving}>{saving ? "Adding..." : "Add Staff"}</Button>
           </DialogFooter>
@@ -167,7 +189,17 @@ const SocietyStaffManager = () => {
           )}
         </DialogContent>
       </Dialog>
-    </Card>
+          {fingerprintFor && (
+        <FingerprintEnroll
+          open={!!fingerprintFor}
+          onClose={() => setFingerprintFor(null)}
+          subjectId={fingerprintFor.id}
+          subjectCategory="society_staff"
+          subjectName={fingerprintFor.name}
+          onChanged={() => void fetchStaff()}
+        />
+      )}
+</Card>
   );
 };
 

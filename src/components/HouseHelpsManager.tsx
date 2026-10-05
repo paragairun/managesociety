@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, Trash2, IdCard } from "lucide-react";
+import { Plus, Trash2, IdCard, Fingerprint, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,19 +10,22 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import StaffIdCard from "@/components/StaffIdCard";
+import StaffProfileFields, { emptyProfileFields, validateProfileFields, profileFieldsToRow } from "@/components/StaffProfileFields";
+import FingerprintEnroll from "@/components/FingerprintEnroll";
+import StaffBulkUpload from "@/components/StaffBulkUpload";
 import { useSocietyStructure } from "@/hooks/useSocietyStructure";
 
 const HELP_TYPES = ["Maid", "Driver", "Cook", "Nurse", "Nanny", "Personal Security", "Other"];
 
 interface HouseHelp {
   id: string; name: string; help_type: string; phone: string | null;
-  photo_base64: string | null; qr_code: string; is_active: boolean;
+  photo_base64: string | null; qr_code: string; is_active: boolean; fingerprint_enrolled?: boolean;
   flats: { wing: string; flat_number: string }[];
 }
 
 interface ResidentFlat { id: string; wing: string; flat_number: string; flat_label: string; }
 
-const emptyForm = () => ({ name: "", help_type: "", phone: "", photo_base64: "" });
+const emptyForm = () => ({ name: "", help_type: "", phone: "", photo_base64: "", ...emptyProfileFields() });
 
 const HouseHelpsManager = ({ residentFlats }: { residentFlats: ResidentFlat[] }) => {
   const { societyId, user, societyName } = useAuth();
@@ -34,6 +37,8 @@ const HouseHelpsManager = ({ residentFlats }: { residentFlats: ResidentFlat[] })
   const [showAdd, setShowAdd] = useState(false);
   const [showIdCard, setShowIdCard] = useState<HouseHelp | null>(null);
   const [form, setForm] = useState(emptyForm());
+  const [fingerprintFor, setFingerprintFor] = useState<{ id: string; name: string } | null>(null);
+  const [showImport, setShowImport] = useState(false);
   const [selectedFlatId, setSelectedFlatId] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -66,6 +71,8 @@ const HouseHelpsManager = ({ residentFlats }: { residentFlats: ResidentFlat[] })
     if (!form.name.trim()) { toast({ title: "Enter name", variant: "destructive" }); return; }
     if (!form.help_type) { toast({ title: "Select type", variant: "destructive" }); return; }
     if (!selectedFlatId) { toast({ title: "Select which flat they work for", variant: "destructive" }); return; }
+    const problem = validateProfileFields(form);
+    if (problem) { toast({ title: problem, variant: "destructive" }); return; }
     if (!societyId || !user) return;
     const flat = residentFlats.find((f) => f.id === selectedFlatId);
     if (!flat) return;
@@ -73,6 +80,7 @@ const HouseHelpsManager = ({ residentFlats }: { residentFlats: ResidentFlat[] })
     const { data: newHelp, error: helpErr } = await supabase.from("house_helps").insert({
       society_id: societyId, name: form.name.trim(), help_type: form.help_type,
       phone: form.phone.trim() || null, photo_base64: form.photo_base64 || null, qr_code: generateQr(),
+      ...profileFieldsToRow(form),
     }).select("id").single();
     if (helpErr || !newHelp) { setSaving(false); toast({ title: "Failed to add", description: helpErr?.message, variant: "destructive" }); return; }
     await supabase.from("house_help_flats").insert({ house_help_id: newHelp.id, resident_id: user.id, wing: flat.wing, flat_number: flat.flat_number });
@@ -93,11 +101,21 @@ const HouseHelpsManager = ({ residentFlats }: { residentFlats: ResidentFlat[] })
     <Card>
       <CardHeader className="pb-3 flex flex-row items-center justify-between">
         <CardTitle className="text-base">My House Helps</CardTitle>
-        <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1">
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setShowImport((v) => !v)} className="gap-1">
+            <FileSpreadsheet className="h-4 w-4" /> Import
+          </Button>
+          <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1">
           <Plus className="h-4 w-4" /> Add Help
         </Button>
+        </div>
       </CardHeader>
       <CardContent>
+        {showImport && (
+          <div className="mb-4">
+            <StaffBulkUpload kind="house_help" defaultRoleType="Other" onComplete={() => { setShowImport(false); void fetchHelps(); }} />
+          </div>
+        )}
         {loading ? (
           <div className="py-8 flex justify-center"><div className="h-6 w-6 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>
         ) : helps.length === 0 ? (
@@ -120,6 +138,9 @@ const HouseHelpsManager = ({ residentFlats }: { residentFlats: ResidentFlat[] })
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => setFingerprintFor({ id: h.id, name: h.name })} aria-label="Fingerprints" title={h.fingerprint_enrolled ? "Fingerprint enrolled" : "Enrol fingerprint"}>
+                    <Fingerprint className={`h-4 w-4 ${h.fingerprint_enrolled ? "text-success" : "text-muted-foreground"}`} />
+                  </Button>
                   <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setShowIdCard(h)} title="View ID Card"><IdCard className="h-4 w-4" /></Button>
                   <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => void removeHelp(h)}><Trash2 className="h-4 w-4" /></Button>
                 </div>
@@ -130,7 +151,7 @@ const HouseHelpsManager = ({ residentFlats }: { residentFlats: ResidentFlat[] })
       </CardContent>
 
       <Dialog open={showAdd} onOpenChange={(o) => !o && setShowAdd(false)}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Register House Help</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1"><Label>Name *</Label><Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Full name" /></div>
@@ -159,7 +180,8 @@ const HouseHelpsManager = ({ residentFlats }: { residentFlats: ResidentFlat[] })
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <StaffProfileFields values={form} onChange={(v) => setForm((p) => ({ ...p, ...v }))} />
+            <DialogFooter>
             <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
             <Button onClick={() => void handleAdd()} disabled={saving}>{saving ? "Adding..." : "Register"}</Button>
           </DialogFooter>
@@ -177,7 +199,17 @@ const HouseHelpsManager = ({ residentFlats }: { residentFlats: ResidentFlat[] })
           )}
         </DialogContent>
       </Dialog>
-    </Card>
+          {fingerprintFor && (
+        <FingerprintEnroll
+          open={!!fingerprintFor}
+          onClose={() => setFingerprintFor(null)}
+          subjectId={fingerprintFor.id}
+          subjectCategory="house_help"
+          subjectName={fingerprintFor.name}
+          onChanged={() => void fetchHelps()}
+        />
+      )}
+</Card>
   );
 };
 

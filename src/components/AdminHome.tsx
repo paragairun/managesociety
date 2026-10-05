@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Plus, Car, Users, Radio, FileSpreadsheet,
-  Sparkles, ArrowRight, LogIn, LogOut, Activity,
-} from "lucide-react";
+  Sparkles, ArrowRight, LogIn, LogOut, Activity, Shield } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,6 +29,7 @@ const TILES = [
   { id: "users", title: "User Registry", icon: Users, tint: "bg-primary/10 text-primary" },
   { id: "vehicle-requests", title: "Vehicle Requests", icon: FileSpreadsheet, tint: "bg-warning/10 text-warning" },
   { id: "staff", title: "Staff", icon: Users, tint: "bg-accent/10 text-accent" },
+  { id: "guards", title: "Guard Registry", icon: Shield, tint: "bg-accent/10 text-accent" },
   { id: "barriers", title: "Boom Barriers", icon: Radio, tint: "bg-success/10 text-success" },
 ];
 
