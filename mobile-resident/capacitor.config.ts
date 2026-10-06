@@ -12,7 +12,7 @@ const config: CapacitorConfig = {
   // update needed. The .apk only needs rebuilding if the native shell itself
   // changes (icon, permissions, app name).
   server: {
-    url: 'https://managesociety.in/login/society?role=resident',
+    url: 'https://managesociety.in/login/society?role=resident&utm_source=android_app&utm_medium=app',
     cleartext: false,
   },
 };
