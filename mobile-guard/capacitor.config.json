@@ -3,7 +3,7 @@
 	"appName": "ManageSociety Guard",
 	"webDir": "www",
 	"server": {
-		"url": "https://managesociety.in/login/society?role=guard",
+		"url": "https://managesociety.in/login/society?role=guard&utm_source=android_app&utm_medium=app",
 		"cleartext": false
 	}
 }
