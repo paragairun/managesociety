@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
   // is only needed if the native shell itself changes (icon, permissions,
   // app name), not for ordinary web app updates.
   server: {
-    url: 'https://managesociety.in/login/society?role=guard',
+    url: 'https://managesociety.in/login/society?role=guard&utm_source=android_app&utm_medium=app',
     cleartext: false,
   },
 };
