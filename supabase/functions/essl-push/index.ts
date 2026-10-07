@@ -146,23 +146,28 @@ async function attachToStaffLogs(
 ) {
   if (!punches.length) return;
 
+  // Resolve each PIN to a person. The PIN now lives on the person's own
+  // record (staff_members.device_pin / house_helps.device_pin) so the
+  // spreadsheet import can set it; resolve_device_pin() also falls back to
+  // device_user_map for a multi-terminal override.
   const pins = [...new Set(punches.map((p) => p.device_pin))];
-  const { data: maps } = await admin
-    .from("device_user_map")
-    .select("device_pin, subject_category, subject_id, device_id")
-    .eq("society_id", device.society_id)
-    .in("device_pin", pins);
-
-  if (!maps?.length) return;
-
-  // A mapping for this specific device wins over a society-wide one.
   const byPin = new Map<string, { subject_category: string; subject_id: string }>();
-  for (const m of maps) {
-    const specific = m.device_id === device.id;
-    if (specific || !byPin.has(m.device_pin)) {
-      byPin.set(m.device_pin, { subject_category: m.subject_category, subject_id: m.subject_id });
+
+  for (const pin of pins) {
+    const { data } = await admin.rpc("resolve_device_pin", {
+      p_society_id: device.society_id,
+      p_pin: pin,
+    });
+    const hit = Array.isArray(data) ? data[0] : data;
+    if (hit?.subject_id) {
+      byPin.set(pin, {
+        subject_category: hit.subject_category,
+        subject_id: hit.subject_id,
+      });
     }
   }
+
+  if (byPin.size === 0) return;
 
   for (const p of punches) {
     const target = byPin.get(p.device_pin);
