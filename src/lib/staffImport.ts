@@ -33,6 +33,9 @@ const HEADER_ALIASES: Record<string, string> = {
   id_no: "id_number", proof_number: "id_number",
   emergency_contact: "emergency_contact", emergency_name: "emergency_contact",
   emergency_phone: "emergency_phone", emergency_number: "emergency_phone",
+  device_pin: "device_pin", pin: "device_pin", user_id: "device_pin",
+  biometric_id: "device_pin", device_user_id: "device_pin",
+  fingerprint_id: "device_pin", machine_id: "device_pin",
 };
 
 const ID_TYPE_ALIASES: Record<string, GovIdType> = {
@@ -65,6 +68,8 @@ export interface ImportRow {
   id_number: string | null;
   emergency_contact: string | null;
   emergency_phone: string | null;
+  /** User ID as enrolled on the biometric terminal. */
+  device_pin: string | null;
 }
 
 export interface RowError {
@@ -194,6 +199,17 @@ export function validateIdNumber(type: GovIdType, value: string): string | null 
   }
 }
 
+/**
+ * The terminal's user id. Devices allocate plain integers, so anything
+ * else is a transcription error. Leading zeros are preserved because the
+ * device sends the PIN back as a string and it must match exactly.
+ */
+export function normaliseDevicePin(raw: string): string | null {
+  const v = raw.trim();
+  if (!v) return null;
+  return /^\d{1,10}$/.test(v) ? v : null;
+}
+
 /** Store Aadhaar masked. The full number is never needed at a gate. */
 export function maskIdNumber(type: GovIdType | null, value: string | null): string | null {
   if (!value) return null;
@@ -231,6 +247,7 @@ export function parseStaffSheet(text: string, opts: ParseOptions): ParseOutcome 
   }
 
   const seenIds = new Set<string>();
+  const seenPins = new Set<string>();
 
   for (let r = 1; r < table.length; r++) {
     const line = r + 1;
@@ -285,6 +302,20 @@ export function parseStaffSheet(text: string, opts: ParseOptions): ParseOutcome 
     }
     if (idType && !idNumber) { errors.push({ line, message: "ID type given without an ID number" }); continue; }
 
+    let devicePin: string | null = null;
+    if (obj.device_pin) {
+      devicePin = normaliseDevicePin(obj.device_pin);
+      if (!devicePin) {
+        errors.push({ line, message: `Device PIN "${obj.device_pin}" must be digits only` });
+        continue;
+      }
+      if (seenPins.has(devicePin)) {
+        errors.push({ line, message: `Duplicate device PIN ${devicePin} within this file` });
+        continue;
+      }
+      seenPins.add(devicePin);
+    }
+
     rows.push({
       name,
       phone,
@@ -296,6 +327,7 @@ export function parseStaffSheet(text: string, opts: ParseOptions): ParseOutcome 
       id_number: idNumber,
       emergency_contact: obj.emergency_contact || null,
       emergency_phone: obj.emergency_phone ? normalisePhone(obj.emergency_phone) : null,
+      device_pin: devicePin,
     });
   }
 
@@ -307,12 +339,12 @@ export function buildTemplateCsv(kind: "staff" | "house_help"): string {
   const header = [
     "name", "phone", kind === "staff" ? "staff_type" : "help_type", "gender",
     "date_of_birth", "address", "id_type", "id_number",
-    "emergency_contact", "emergency_phone",
+    "emergency_contact", "emergency_phone", "device_pin",
   ].join(",");
   const example = kind === "staff"
     ? ['Ramesh Kumar', '9876543210', 'Security', 'male', '15/08/1985',
-       '"12, Shivaji Nagar, Pune"', 'aadhaar', '123412341234', 'Sunita Kumar', '9876543211']
+       '"12, Shivaji Nagar, Pune"', 'aadhaar', '123412341234', 'Sunita Kumar', '9876543211', '1']
     : ['Lakshmi Devi', '9823456780', 'Maid', 'female', '02/03/1990',
-       '"Flat 4, Anand Chawl, Mumbai"', 'voter_id', 'ABC1234567', 'Ravi Devi', '9823456781'];
+       '"Flat 4, Anand Chawl, Mumbai"', 'voter_id', 'ABC1234567', 'Ravi Devi', '9823456781', '2'];
   return `${header}\n${example.join(",")}\n`;
 }
