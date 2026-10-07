@@ -1,1 +1,19 @@
 project_id = "csiisydegdrmvvbaqifw"
+
+# ── Edge function settings ──
+# Every function verifies a Supabase JWT by default. A biometric terminal
+# cannot send an Authorization header: it speaks the ADMS/iClock protocol
+# and authenticates only by its serial number in the query string. With
+# JWT verification left on, the device's requests are rejected before they
+# ever reach the handler, and nothing is logged.
+#
+# This belongs here rather than as a `--no-verify-jwt` flag, because
+# .github/workflows/deploy-edge-functions.yml runs a plain
+# `supabase functions deploy` with no per-function flags. Putting it in
+# config.toml means CI deploys it correctly without touching the workflow.
+#
+# essl-push does its own authentication instead: an unregistered serial is
+# refused, a device must be set active by an admin, and nothing the device
+# sends can create or modify a person.
+[functions.essl-push]
+verify_jwt = false
