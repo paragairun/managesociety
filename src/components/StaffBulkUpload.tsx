@@ -89,6 +89,7 @@ const StaffBulkUpload = ({ kind, defaultRoleType, onComplete }: Props) => {
       id_number: r.id_number,
       emergency_contact: r.emergency_contact,
       emergency_phone: r.emergency_phone,
+      device_pin: r.device_pin,
       qr_code: generateQr(),
     }));
 
@@ -99,9 +100,13 @@ const StaffBulkUpload = ({ kind, defaultRoleType, onComplete }: Props) => {
       // A duplicate ID document trips the partial unique index added in
       // staff_profiles_biometrics.sql — say so in plain language.
       const duplicate = error.message.includes("society_id_doc_uniq");
+      const pinClash = error.message.includes("society_pin_uniq");
       toast({
-        title: duplicate ? "Duplicate ID document" : "Import failed",
-        description: duplicate
+        title: pinClash ? "Duplicate fingerprint ID"
+          : duplicate ? "Duplicate ID document" : "Import failed",
+        description: pinClash
+          ? "One of these device_pin values is already assigned to someone else in this society. No rows were imported."
+          : duplicate
           ? "One of these ID numbers is already registered in this society. No rows were imported."
           : error.message,
         variant: "destructive",

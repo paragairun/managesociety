@@ -18,11 +18,14 @@ export interface ProfileFieldValues {
   id_number: string;
   emergency_contact: string;
   emergency_phone: string;
+  /** User ID as enrolled on the biometric terminal. */
+  device_pin: string;
 }
 
 export const emptyProfileFields = (): ProfileFieldValues => ({
   gender: "", date_of_birth: "", address: "",
   id_type: "", id_number: "", emergency_contact: "", emergency_phone: "",
+  device_pin: "",
 });
 
 export const ID_TYPE_OPTIONS: { value: GovIdType; label: string }[] = [
@@ -52,6 +55,9 @@ export function validateProfileFields(v: ProfileFieldValues): string | null {
   if (v.emergency_phone && v.emergency_phone.replace(/\D/g, "").length < 10) {
     return "Emergency phone must be at least 10 digits";
   }
+  if (v.device_pin && !/^\d{1,10}$/.test(v.device_pin.trim())) {
+    return "Fingerprint ID must be digits only";
+  }
   return null;
 }
 
@@ -65,6 +71,7 @@ export function profileFieldsToRow(v: ProfileFieldValues) {
     id_number: v.id_number.replace(/\s+/g, "").toUpperCase() || null,
     emergency_contact: v.emergency_contact.trim() || null,
     emergency_phone: v.emergency_phone.replace(/\D/g, "") || null,
+    device_pin: v.device_pin.trim() || null,
   };
 }
 
@@ -142,6 +149,22 @@ const StaffProfileFields = ({ values, onChange }: Props) => {
           Only the last 4 digits are stored. The full Aadhaar number is never saved.
         </p>
       )}
+
+      <div className="space-y-1.5">
+        <Label htmlFor="sp-pin">Fingerprint ID (biometric terminal)</Label>
+        <Input
+          id="sp-pin"
+          inputMode="numeric"
+          placeholder="User ID as enrolled on the device, e.g. 1"
+          value={values.device_pin}
+          onChange={(e) => set({ device_pin: e.target.value })}
+          className="touch-target"
+        />
+        <p className="text-xs text-muted-foreground">
+          Leave blank if they do not use the fingerprint terminal. It can be
+          assigned later from Admin &rarr; Fingerprint IDs.
+        </p>
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
