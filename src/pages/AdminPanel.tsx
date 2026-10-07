@@ -7,6 +7,7 @@ import BulkResidentUpload from "@/components/BulkResidentUpload";
 import AccessLogsViewer from "@/components/AccessLogsViewer";
 import UserRegistry from "@/components/UserRegistry";
 import GuardRegistry from "@/components/GuardRegistry";
+import DevicePinMapping from "@/components/DevicePinMapping";
 import VehicleChangeRequestsAdmin from "@/components/VehicleChangeRequestsAdmin";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -595,6 +596,7 @@ const AdminPanel = () => {
       {activeView === "access-logs" && <AccessLogsViewer />}
       {activeView === "users" && <UserRegistry />}
       {activeView === "guards" && <GuardRegistry />}
+      {activeView === "device-pins" && <DevicePinMapping />}
       {activeView === "visitor-qr" && renderVisitorQr()}
       {activeView === "barriers" && <BarrierDevicesAdmin />}
       {activeView === "staff" && <SocietyStaffManager />}
