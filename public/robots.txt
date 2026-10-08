@@ -13,4 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://visitorpasses.in/sitemap.xml
+Sitemap: https://managesociety.in/sitemap.xml
