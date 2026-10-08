@@ -632,7 +632,7 @@ const Index = () => (
           <div className="h-9 w-9 rounded-lg bg-primary/15 flex items-center justify-center">
             <Building2 className="h-5 w-5 text-primary" />
           </div>
-          <span className="font-bold text-foreground text-lg" style={{ fontFamily: DISPLAY_FONT }}>VisitorPasses</span>
+          <span className="font-bold text-foreground text-lg" style={{ fontFamily: DISPLAY_FONT }}>ManageSociety</span>
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
@@ -787,7 +787,7 @@ const Index = () => (
     </section>
 
     <section className="max-w-5xl mx-auto px-4 py-16">
-      <h2 className="text-2xl font-bold text-foreground mb-2">From the desk of VisitorPasses</h2>
+      <h2 className="text-2xl font-bold text-foreground mb-2">From the desk of ManageSociety</h2>
       <p className="text-muted-foreground mb-8">Practical insights on society management and security.</p>
       <Link to="/article/digital-vs-paper-society-management" className="group block rounded-2xl border border-border bg-card hover:border-primary/40 transition-colors p-6 sm:p-8">
         <div className="flex items-start gap-4">
@@ -813,7 +813,7 @@ const Index = () => (
 
     <footer className="border-t border-border py-8 text-center">
       <p className="text-xs text-muted-foreground">
-        © {new Date().getFullYear()} VisitorPasses — made with love by parag.airun@gmail.com
+        © {new Date().getFullYear()} ManageSociety — made with love by parag.airun@gmail.com
       </p>
     </footer>
   </div>
