@@ -1,7 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { validateIdNumber, type GovIdType, type Gender } from "@/lib/staffImport";
+import { validateIdNumber, maskIdNumber, type GovIdType, type Gender } from "@/lib/staffImport";
 
 /**
  * The profile fields shared by society staff and house helps: gender,
@@ -44,11 +44,22 @@ const GENDER_OPTIONS: { value: Gender; label: string }[] = [
   { value: "undisclosed", label: "Prefer not to say" },
 ];
 
+/**
+ * An Aadhaar number already stored in masked form, e.g. XXXXXXXX1234.
+ *
+ * This matters when EDITING an existing record: the stored value is the
+ * masked one, so re-validating it as a raw 12-digit Aadhaar would reject
+ * a record the admin never touched.
+ */
+export function isMaskedIdNumber(value: string): boolean {
+  return /^X{4,}\d{4}$/i.test(value.replace(/\s+/g, ""));
+}
+
 /** Shared validation so the dialog and the importer agree. */
 export function validateProfileFields(v: ProfileFieldValues): string | null {
   if (v.id_number && !v.id_type) return "Select an ID type for the ID number entered";
   if (v.id_type && !v.id_number) return "Enter the ID number for the selected ID type";
-  if (v.id_type && v.id_number) {
+  if (v.id_type && v.id_number && !isMaskedIdNumber(v.id_number)) {
     const problem = validateIdNumber(v.id_type as GovIdType, v.id_number);
     if (problem) return problem;
   }
@@ -61,17 +72,49 @@ export function validateProfileFields(v: ProfileFieldValues): string | null {
   return null;
 }
 
-/** Shape the values for a Supabase insert/update. */
+/**
+ * Shape the values for a Supabase insert or update.
+ *
+ * Aadhaar is masked to its last four digits here. The form tells the
+ * admin "the full Aadhaar number is never saved", and previously that
+ * was not true on this path — only the spreadsheet importer masked it,
+ * so anyone added or edited through the dialog had their full 12 digits
+ * written to the database. maskIdNumber is the same function the
+ * importer uses, and it leaves an already-masked value untouched.
+ */
 export function profileFieldsToRow(v: ProfileFieldValues) {
+  const rawId = v.id_number.replace(/\s+/g, "");
   return {
     gender: v.gender || null,
     date_of_birth: v.date_of_birth || null,
     address: v.address.trim() || null,
     id_type: v.id_type || null,
-    id_number: v.id_number.replace(/\s+/g, "").toUpperCase() || null,
+    id_number: rawId
+      ? (isMaskedIdNumber(rawId)
+          ? rawId.toUpperCase()
+          : maskIdNumber(v.id_type as GovIdType, rawId))
+      : null,
     emergency_contact: v.emergency_contact.trim() || null,
     emergency_phone: v.emergency_phone.replace(/\D/g, "") || null,
     device_pin: v.device_pin.trim() || null,
+  };
+}
+
+/**
+ * Load a database row back into form values, for the edit dialog.
+ * Nulls become empty strings, which is what the inputs expect.
+ */
+export function profileFieldsFromRow(row: Record<string, unknown>): ProfileFieldValues {
+  const s = (k: string) => (row[k] == null ? "" : String(row[k]));
+  return {
+    gender: s("gender"),
+    date_of_birth: s("date_of_birth").slice(0, 10),
+    address: s("address"),
+    id_type: s("id_type"),
+    id_number: s("id_number"),
+    emergency_contact: s("emergency_contact"),
+    emergency_phone: s("emergency_phone"),
+    device_pin: s("device_pin"),
   };
 }
 

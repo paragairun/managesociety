@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, Trash2, UserCheck, UserX, IdCard, Fingerprint, FileSpreadsheet } from "lucide-react";
+import { Plus, Trash2, UserCheck, UserX, IdCard, Fingerprint, FileSpreadsheet, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import StaffIdCard from "@/components/StaffIdCard";
-import StaffProfileFields, { emptyProfileFields, validateProfileFields, profileFieldsToRow, type ProfileFieldValues } from "@/components/StaffProfileFields";
+import StaffProfileFields, { emptyProfileFields, validateProfileFields, profileFieldsToRow, profileFieldsFromRow } from "@/components/StaffProfileFields";
 import FingerprintEnroll from "@/components/FingerprintEnroll";
 import StaffBulkUpload from "@/components/StaffBulkUpload";
 
@@ -19,6 +19,12 @@ const STAFF_TYPES = ["Security", "Housekeeping", "Accountant", "Facility Manager
 interface StaffMember {
   id: string; name: string; staff_type: string; phone: string | null;
   photo_base64: string | null; qr_code: string; is_active: boolean; fingerprint_enrolled?: boolean; created_at: string;
+  // Profile columns, needed to prefill the edit dialog. fetchStaff does
+  // select("*") so these already arrive; they were simply untyped before.
+  gender?: string | null; date_of_birth?: string | null; address?: string | null;
+  id_type?: string | null; id_number?: string | null;
+  emergency_contact?: string | null; emergency_phone?: string | null;
+  device_pin?: string | null;
 }
 
 const emptyForm = () => ({ name: "", staff_type: "", phone: "", photo_base64: "", ...emptyProfileFields() });
@@ -30,6 +36,8 @@ const SocietyStaffManager = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  // null => the dialog is adding; an id => it is editing that person.
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [showIdCard, setShowIdCard] = useState<StaffMember | null>(null);
   const [form, setForm] = useState(emptyForm());
   const fileRef = useRef<HTMLInputElement>(null);
@@ -55,22 +63,78 @@ const SocietyStaffManager = () => {
 
   const generateQr = () => `STF-${crypto.randomUUID().replace(/-/g,"").slice(0,12).toUpperCase()}`;
 
-  const handleAdd = async () => {
+  const openAdd = () => {
+    setEditingId(null);
+    setForm(emptyForm());
+    setShowAdd(true);
+  };
+
+  const openEdit = (s: StaffMember) => {
+    setEditingId(s.id);
+    setForm({
+      name: s.name,
+      staff_type: s.staff_type,
+      phone: s.phone ?? "",
+      photo_base64: s.photo_base64 ?? "",
+      ...profileFieldsFromRow(s as unknown as Record<string, unknown>),
+    });
+    setShowAdd(true);
+  };
+
+  const closeDialog = () => {
+    setShowAdd(false);
+    setEditingId(null);
+    setForm(emptyForm());
+  };
+
+  /**
+   * Shared save for both modes. On edit the QR code is deliberately NOT
+   * regenerated: it is printed on the person's existing ID card and the
+   * guard scanner matches on it, so a new one would silently invalidate
+   * a card already in their pocket.
+   */
+  const handleSave = async () => {
     if (!form.name.trim()) { toast({ title: "Enter staff name", variant: "destructive" }); return; }
     if (!form.staff_type) { toast({ title: "Select staff type", variant: "destructive" }); return; }
     const problem = validateProfileFields(form);
     if (problem) { toast({ title: problem, variant: "destructive" }); return; }
     if (!societyId) return;
+
     setSaving(true);
-    const { error } = await supabase.from("staff_members").insert({
-      society_id: societyId, name: form.name.trim(), staff_type: form.staff_type,
-      phone: form.phone.trim() || null, photo_base64: form.photo_base64 || null, qr_code: generateQr(),
+    const fields = {
+      name: form.name.trim(),
+      staff_type: form.staff_type,
+      phone: form.phone.trim() || null,
+      photo_base64: form.photo_base64 || null,
       ...profileFieldsToRow(form),
-    });
+    };
+
+    const { error } = editingId
+      ? await supabase.from("staff_members").update(fields).eq("id", editingId)
+      : await supabase.from("staff_members").insert({ ...fields, society_id: societyId, qr_code: generateQr() });
     setSaving(false);
-    if (error) { toast({ title: "Failed to add staff", description: error.message, variant: "destructive" }); return; }
-    toast({ title: `${form.name} added` });
-    setForm(emptyForm()); setShowAdd(false);
+
+    if (error) {
+      // The partial unique indexes added in the biometrics migration are
+      // the two collisions an admin can realistically cause.
+      const pinClash = error.message.includes("society_pin_uniq");
+      const docClash = error.message.includes("society_id_doc_uniq");
+      toast({
+        title: pinClash ? "That fingerprint ID is taken"
+          : docClash ? "That ID document is already registered"
+          : editingId ? "Failed to save changes" : "Failed to add staff",
+        description: pinClash
+          ? "Another person in this society already has that fingerprint ID."
+          : docClash
+          ? "Another person in this society already has that ID number."
+          : error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({ title: editingId ? `${form.name} updated` : `${form.name} added` });
+    closeDialog();
     await fetchStaff();
   };
 
@@ -94,7 +158,7 @@ const SocietyStaffManager = () => {
           <Button size="sm" variant="outline" onClick={() => setShowImport((v) => !v)} className="gap-1">
             <FileSpreadsheet className="h-4 w-4" /> Import
           </Button>
-          <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1">
+          <Button size="sm" onClick={openAdd} className="gap-1">
           <Plus className="h-4 w-4" /> Add Staff
         </Button>
         </div>
@@ -130,6 +194,9 @@ const SocietyStaffManager = () => {
                   <Button variant="ghost" size="sm" onClick={() => setFingerprintFor({ id: s.id, name: s.name })} aria-label="Fingerprints" title={s.fingerprint_enrolled ? "Fingerprint enrolled" : "Enrol fingerprint"}>
                     <Fingerprint className={`h-4 w-4 ${s.fingerprint_enrolled ? "text-success" : "text-muted-foreground"}`} />
                   </Button>
+                  <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => openEdit(s)} title="Edit profile">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
                   <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setShowIdCard(s)} title="View ID Card">
                     <IdCard className="h-4 w-4" />
                   </Button>
@@ -146,9 +213,9 @@ const SocietyStaffManager = () => {
         )}
       </CardContent>
 
-      <Dialog open={showAdd} onOpenChange={(o) => !o && setShowAdd(false)}>
+      <Dialog open={showAdd} onOpenChange={(o) => !o && closeDialog()}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Add Society Staff</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingId ? "Edit Staff Profile" : "Add Society Staff"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1"><Label>Name *</Label><Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Full name" /></div>
             <div className="space-y-1">
@@ -173,8 +240,8 @@ const SocietyStaffManager = () => {
           </div>
           <StaffProfileFields values={form} onChange={(v) => setForm((p) => ({ ...p, ...v }))} />
             <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
-            <Button onClick={() => void handleAdd()} disabled={saving}>{saving ? "Adding..." : "Add Staff"}</Button>
+            <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+            <Button onClick={() => void handleSave()} disabled={saving}>{saving ? "Saving..." : editingId ? "Save Changes" : "Add Staff"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
