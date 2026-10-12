@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   istMonthRange, summarizeAttendance, formatIstDate, formatIstTime,
-  type StaffLogRow as StaffLog, type NameMap,
+  type StaffLogRow as StaffLog, type NameMap, type StaffShift,
 } from "@/lib/attendanceSummary";
 
 interface StaffAttendanceLogProps {
@@ -65,14 +65,21 @@ const StaffAttendanceLog = ({ filterStaffId, filterCategory = "all", showSummary
 
     if (ids.length > 0) {
       const [{ data: sd, error: sErr }, { data: hd, error: hErr }] = await Promise.all([
-        supabase.from("staff_members").select("id, name, staff_type").in("id", ids),
-        supabase.from("house_helps").select("id, name, help_type").in("id", ids),
+        supabase.from("staff_members").select("id, name, staff_type, shift").in("id", ids),
+        supabase.from("house_helps").select("id, name, help_type, shift").in("id", ids),
       ]);
       // A failed name lookup is reported rather than silently rendering
       // every row as "Unknown".
       if (sErr || hErr) setError((sErr ?? hErr)!.message);
-      (sd ?? []).forEach((s: { id: string; name: string; staff_type: string }) => { map[s.id] = { name: s.name, role: s.staff_type }; });
-      (hd ?? []).forEach((h: { id: string; name: string; help_type: string }) => { map[h.id] = { name: h.name, role: h.help_type }; });
+      // shift drives which attendance day each row is filed under, so it
+      // has to come back with the name, not be defaulted here.
+      const asShift = (v: unknown): StaffShift => (v === "night" ? "night" : "day");
+      (sd ?? []).forEach((s: { id: string; name: string; staff_type: string; shift?: string }) => {
+        map[s.id] = { name: s.name, role: s.staff_type, shift: asShift(s.shift) };
+      });
+      (hd ?? []).forEach((h: { id: string; name: string; help_type: string; shift?: string }) => {
+        map[h.id] = { name: h.name, role: h.help_type, shift: asShift(h.shift) };
+      });
     }
 
     setNameMap(map);
@@ -151,6 +158,7 @@ const StaffAttendanceLog = ({ filterStaffId, filterCategory = "all", showSummary
               <tr>
                 <th className="text-left p-2 font-medium text-muted-foreground text-xs">Date</th>
                 {!filterStaffId && <th className="text-left p-2 font-medium text-muted-foreground text-xs">Name</th>}
+                <th className="text-left p-2 font-medium text-muted-foreground text-xs">Shift</th>
                 <th className="text-left p-2 font-medium text-muted-foreground text-xs">In</th>
                 <th className="text-left p-2 font-medium text-muted-foreground text-xs">Out</th>
                 <th className="text-left p-2 font-medium text-muted-foreground text-xs">Hrs</th>
@@ -161,6 +169,11 @@ const StaffAttendanceLog = ({ filterStaffId, filterCategory = "all", showSummary
                 <tr key={i} className="border-t border-border/50">
                   <td className="p-2 text-xs text-muted-foreground">{formatIstDate(d.date)}</td>
                   {!filterStaffId && <td className="p-2"><p className="font-medium text-xs">{d.staff_name}</p><p className="text-xs text-muted-foreground">{d.staff_role}</p></td>}
+                  <td className="p-2 text-xs">
+                    {d.shift === "night"
+                      ? <span className="text-muted-foreground" title="Attendance day runs 9 AM to 9 AM">Night</span>
+                      : <span className="text-muted-foreground">Day</span>}
+                  </td>
                   <td className="p-2 font-mono text-xs">{d.first_entry ? formatIstTime(d.first_entry) : "—"}</td>
                   <td className="p-2 font-mono text-xs">{d.last_exit ? formatIstTime(d.last_exit) : "—"}</td>
                   <td className="p-2 font-mono text-xs">{d.hours_worked !== null ? `${d.hours_worked}h` : "—"}</td>

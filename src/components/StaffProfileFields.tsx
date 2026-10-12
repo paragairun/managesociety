@@ -20,12 +20,14 @@ export interface ProfileFieldValues {
   emergency_phone: string;
   /** User ID as enrolled on the biometric terminal. */
   device_pin: string;
+  /** 'day' or 'night'. Decides which attendance day a punch belongs to. */
+  shift: string;
 }
 
 export const emptyProfileFields = (): ProfileFieldValues => ({
   gender: "", date_of_birth: "", address: "",
   id_type: "", id_number: "", emergency_contact: "", emergency_phone: "",
-  device_pin: "",
+  device_pin: "", shift: "day",
 });
 
 export const ID_TYPE_OPTIONS: { value: GovIdType; label: string }[] = [
@@ -35,6 +37,17 @@ export const ID_TYPE_OPTIONS: { value: GovIdType; label: string }[] = [
   { value: "voter_id", label: "Voter ID" },
   { value: "driving_license", label: "Driving License" },
   { value: "ration_card", label: "Ration Card" },
+];
+
+/**
+ * A night shift's attendance day runs 09:00 to 09:00 rather than
+ * midnight to midnight, so a shift worked 22:00 to 06:00 is reported
+ * under the evening it started and its entry and exit stay on one row.
+ * The database enforces the same two values (public.staff_shift).
+ */
+export const SHIFT_OPTIONS: { value: "day" | "night"; label: string; hint: string }[] = [
+  { value: "day", label: "Day shift", hint: "Attendance day runs midnight to midnight" },
+  { value: "night", label: "Night shift", hint: "Attendance day runs 9 AM to 9 AM" },
 ];
 
 const GENDER_OPTIONS: { value: Gender; label: string }[] = [
@@ -69,6 +82,9 @@ export function validateProfileFields(v: ProfileFieldValues): string | null {
   if (v.device_pin && !/^\d{1,10}$/.test(v.device_pin.trim())) {
     return "Fingerprint ID must be digits only";
   }
+  if (v.shift && v.shift !== "day" && v.shift !== "night") {
+    return "Shift must be either day or night";
+  }
   return null;
 }
 
@@ -97,6 +113,9 @@ export function profileFieldsToRow(v: ProfileFieldValues) {
     emergency_contact: v.emergency_contact.trim() || null,
     emergency_phone: v.emergency_phone.replace(/\D/g, "") || null,
     device_pin: v.device_pin.trim() || null,
+    // Not nullable in the database, so an empty form value becomes the
+    // 'day' default rather than a null that would be rejected.
+    shift: v.shift === "night" ? "night" : "day",
   };
 }
 
@@ -115,6 +134,7 @@ export function profileFieldsFromRow(row: Record<string, unknown>): ProfileField
     emergency_contact: s("emergency_contact"),
     emergency_phone: s("emergency_phone"),
     device_pin: s("device_pin"),
+    shift: s("shift") === "night" ? "night" : "day",
   };
 }
 
@@ -192,6 +212,24 @@ const StaffProfileFields = ({ values, onChange }: Props) => {
           Only the last 4 digits are stored. The full Aadhaar number is never saved.
         </p>
       )}
+
+      <div className="space-y-1.5">
+        <Label>Shift</Label>
+        <Select value={values.shift || "day"} onValueChange={(shift) => set({ shift })}>
+          <SelectTrigger className="touch-target"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {SHIFT_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          {SHIFT_OPTIONS.find((o) => o.value === (values.shift || "day"))?.hint}
+          {(values.shift || "day") === "night"
+            ? " \u2014 an overnight shift stays on one row, under the date it began."
+            : ""}
+        </p>
+      </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="sp-pin">Fingerprint ID (biometric terminal)</Label>
