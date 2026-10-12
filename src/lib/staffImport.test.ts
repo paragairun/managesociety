@@ -306,3 +306,47 @@ describe("normaliseDevicePin", () => {
   it.each(["", "abc", "1a", "-1", "1.5", "12345678901"])(
     "rejects %j", (input) => expect(normaliseDevicePin(input)).toBe(null));
 });
+
+describe("shift column", () => {
+  const head = "name,phone,staff_type,shift";
+  const parse = (csv: string) => parseStaffSheet(csv, { defaultRoleType: "Security" });
+
+  it("defaults a blank shift to day", () => {
+    const r = parse(`${head}\nRamesh,9876543210,Security,`);
+    expect(r.errors).toEqual([]);
+    expect(r.rows[0].shift).toBe("day");
+  });
+
+  it("accepts day and night in any case, and common shorthand", () => {
+    const r = parse(`${head}\nA,9876543210,Security,NIGHT\nB,9876543211,Security,Day\nC,9876543212,Security,n\nD,9876543213,Security,night shift`);
+    expect(r.errors).toEqual([]);
+    expect(r.rows.map((x) => x.shift)).toEqual(["night", "day", "night", "night"]);
+  });
+
+  it("rejects a shift it cannot map instead of silently filing it as day", () => {
+    // A typo here would misfile a whole month of attendance, so it must
+    // be an error on that line, not a quiet fallback.
+    const r = parse(`${head}\nRamesh,9876543210,Security,evening`);
+    expect(r.rows).toHaveLength(0);
+    expect(r.errors[0].message).toMatch(/must be either day or night/i);
+  });
+
+  it("recognises the column under its common spreadsheet headings", () => {
+    for (const h of ["shift", "shift_type", "duty", "duty_shift"]) {
+      const r = parse(`name,phone,staff_type,${h}\nA,9876543210,Security,night`);
+      expect(r.rows[0].shift).toBe("night");
+      expect(r.ignoredColumns).not.toContain(h);
+    }
+  });
+
+  it("keeps the template's example row the same width as its header", () => {
+    // The header and the example are two separate lists, so adding a
+    // column to one and not the other ships a broken template.
+    for (const kind of ["staff", "house_help"] as const) {
+      const [header, example] = buildTemplateCsv(kind).trim().split("\n");
+      const cells = (line: string) => line.match(/("([^"]|"")*"|[^,]*)(,|$)/g)!.length - 1;
+      expect(cells(example)).toBe(cells(header));
+      expect(header.split(",")).toContain("shift");
+    }
+  });
+});

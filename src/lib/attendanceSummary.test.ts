@@ -1,12 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
   istDateKey, istMonthRange, formatIstDate, summarizeAttendance,
-  type StaffLogRow, type NameMap,
+  shiftDayKey, type StaffLogRow, type NameMap,
 } from "./attendanceSummary";
 
 const NAMES: NameMap = {
-  "staff-1": { name: "Soniya", role: "Housekeeping" },
-  "help-1": { name: "Lata Devi", role: "Maid" },
+  "staff-1": { name: "Soniya", role: "Housekeeping", shift: "day" },
+  "help-1": { name: "Lata Devi", role: "Maid", shift: "day" },
+  "guard-1": { name: "Night Guard", role: "Security", shift: "night" },
 };
 
 const row = (staff_id: string, action_type: "entry" | "exit", timestamp: string): StaffLogRow =>
@@ -151,5 +152,109 @@ describe("summarizeAttendance", () => {
     ], NAMES);
     expect(out).toHaveLength(1);
     expect(out[0].date).toBe("2026-10-11");
+  });
+});
+
+describe("shiftDayKey", () => {
+  it("files a day-shift punch under its own Indian date", () => {
+    expect(shiftDayKey("2026-10-12T03:13:00.000Z", "day")).toBe("2026-10-12"); // 08:43 IST
+  });
+
+  it("files a night-shift punch before 09:00 under the previous day", () => {
+    // 02:00 IST on the 13th = 20:30 UTC on the 12th.
+    expect(shiftDayKey("2026-10-12T20:30:00.000Z", "night")).toBe("2026-10-12");
+    // 06:00 IST on the 13th
+    expect(shiftDayKey("2026-10-13T00:30:00.000Z", "night")).toBe("2026-10-12");
+    // 08:30 IST on the 13th - the case Deepak asked about
+    expect(shiftDayKey("2026-10-13T03:00:00.000Z", "night")).toBe("2026-10-12");
+  });
+
+  it("rolls the night shift day over at 09:00 exactly", () => {
+    expect(shiftDayKey("2026-10-13T03:29:59.000Z", "night")).toBe("2026-10-12"); // 08:59:59
+    expect(shiftDayKey("2026-10-13T03:30:00.000Z", "night")).toBe("2026-10-13"); // 09:00:00
+  });
+
+  it("files a night-shift evening punch under that evening's date", () => {
+    expect(shiftDayKey("2026-10-12T16:30:00.000Z", "night")).toBe("2026-10-12"); // 22:00 IST
+  });
+
+  it("agrees with the day boundary for a day shift at every hour of two days", () => {
+    for (let h = 0; h < 48; h++) {
+      const iso = new Date(Date.UTC(2026, 9, 12, 0, 0, 0) + h * 3600000).toISOString();
+      expect(shiftDayKey(iso, "day")).toBe(istDateKey(iso));
+    }
+  });
+});
+
+describe("summarizeAttendance - night shift", () => {
+  const row = (staff_id: string, action_type: "entry" | "exit", timestamp: string): StaffLogRow =>
+    ({ id: `${staff_id}-${timestamp}`, staff_id, category: "society_staff", action_type, timestamp });
+
+  it("keeps an overnight shift on one row, under the date it started", () => {
+    const out = summarizeAttendance([
+      row("guard-1", "entry", "2026-10-12T16:30:00.000Z"), // 22:00 IST 12th
+      row("guard-1", "exit", "2026-10-13T00:30:00.000Z"),  // 06:00 IST 13th
+    ], NAMES);
+
+    expect(out).toHaveLength(1);
+    expect(out[0].date).toBe("2026-10-12");
+    expect(out[0].shift).toBe("night");
+    expect(out[0].hours_worked).toBe(8);
+  });
+
+  it("keeps the shift whole when the exit falls past 09:00", () => {
+    // This is the case that exposed the bug: keying each row by its own
+    // timestamp put the entry under the 13th and the exit under the
+    // 14th, showing half a shift on each day.
+    const out = summarizeAttendance([
+      row("guard-1", "entry", "2026-10-13T16:30:00.000Z"), // 22:00 IST 13th
+      row("guard-1", "exit", "2026-10-14T05:00:00.000Z"),  // 10:30 IST 14th
+    ], NAMES);
+
+    expect(out).toHaveLength(1);
+    expect(out[0].date).toBe("2026-10-13");
+    expect(out[0].hours_worked).toBe(12.5);
+  });
+
+  it("shows an abandoned shift with no exit and blank hours", () => {
+    const out = summarizeAttendance([
+      row("guard-1", "entry", "2026-10-12T16:30:00.000Z"), // 22:00 IST 12th
+      row("guard-1", "entry", "2026-10-13T16:30:00.000Z"), // 22:00 IST 13th, never closed the first
+      row("guard-1", "exit", "2026-10-14T00:30:00.000Z"),  // 06:00 IST 14th
+    ], NAMES);
+
+    expect(out).toHaveLength(2);
+    const twelfth = out.find((d) => d.date === "2026-10-12")!;
+    const thirteenth = out.find((d) => d.date === "2026-10-13")!;
+    expect(twelfth.last_exit).toBeNull();
+    expect(twelfth.hours_worked).toBeNull();
+    expect(thirteenth.hours_worked).toBe(8);
+  });
+
+  it("treats a person with no shift recorded as day shift", () => {
+    const out = summarizeAttendance(
+      [row("nobody", "entry", "2026-10-12T20:30:00.000Z")], {});
+    expect(out[0].shift).toBe("day");
+    expect(out[0].date).toBe("2026-10-13"); // 02:00 IST, a day-shift date
+  });
+
+  it("keeps an orphan exit rather than dropping it", () => {
+    const out = summarizeAttendance(
+      [row("guard-1", "exit", "2026-10-13T00:30:00.000Z")], NAMES);
+    expect(out).toHaveLength(1);
+    expect(out[0].first_entry).toBeNull();
+    expect(out[0].last_exit).not.toBeNull();
+  });
+
+  it("does not mix two people's shifts", () => {
+    const out = summarizeAttendance([
+      row("guard-1", "entry", "2026-10-12T16:30:00.000Z"),
+      row("staff-1", "entry", "2026-10-12T03:13:00.000Z"),
+      row("guard-1", "exit", "2026-10-13T00:30:00.000Z"),
+      row("staff-1", "exit", "2026-10-12T12:30:00.000Z"),
+    ], NAMES);
+    expect(out).toHaveLength(2);
+    expect(out.find((d) => d.staff_id === "guard-1")!.hours_worked).toBe(8);
+    expect(out.find((d) => d.staff_id === "staff-1")!.hours_worked).toBeCloseTo(9.28, 2);
   });
 });

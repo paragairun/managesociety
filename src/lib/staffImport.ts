@@ -33,6 +33,7 @@ const HEADER_ALIASES: Record<string, string> = {
   id_no: "id_number", proof_number: "id_number",
   emergency_contact: "emergency_contact", emergency_name: "emergency_contact",
   emergency_phone: "emergency_phone", emergency_number: "emergency_phone",
+  shift: "shift", shift_type: "shift", duty: "shift", duty_shift: "shift",
   device_pin: "device_pin", pin: "device_pin", user_id: "device_pin",
   biometric_id: "device_pin", device_user_id: "device_pin",
   fingerprint_id: "device_pin", machine_id: "device_pin",
@@ -70,6 +71,7 @@ export interface ImportRow {
   emergency_phone: string | null;
   /** User ID as enrolled on the biometric terminal. */
   device_pin: string | null;
+  shift: "day" | "night";
 }
 
 export interface RowError {
@@ -316,6 +318,22 @@ export function parseStaffSheet(text: string, opts: ParseOptions): ParseOutcome 
       seenPins.add(devicePin);
     }
 
+    // Shift decides which attendance day a punch belongs to, so a typo
+    // here would quietly misfile a whole month. Only the two values the
+    // database accepts are allowed; anything else is an error on that
+    // line rather than a silent fallback to 'day'. A blank cell is fine
+    // and means day shift.
+    let shift: "day" | "night" = "day";
+    if (obj.shift) {
+      const v = obj.shift.trim().toLowerCase();
+      if (v === "night" || v === "n" || v === "night shift") shift = "night";
+      else if (v === "day" || v === "d" || v === "day shift") shift = "day";
+      else {
+        errors.push({ line, message: `Shift "${obj.shift}" must be either day or night` });
+        continue;
+      }
+    }
+
     rows.push({
       name,
       phone,
@@ -328,6 +346,7 @@ export function parseStaffSheet(text: string, opts: ParseOptions): ParseOutcome 
       emergency_contact: obj.emergency_contact || null,
       emergency_phone: obj.emergency_phone ? normalisePhone(obj.emergency_phone) : null,
       device_pin: devicePin,
+      shift,
     });
   }
 
@@ -339,12 +358,12 @@ export function buildTemplateCsv(kind: "staff" | "house_help"): string {
   const header = [
     "name", "phone", kind === "staff" ? "staff_type" : "help_type", "gender",
     "date_of_birth", "address", "id_type", "id_number",
-    "emergency_contact", "emergency_phone", "device_pin",
+    "emergency_contact", "emergency_phone", "device_pin", "shift",
   ].join(",");
   const example = kind === "staff"
     ? ['Ramesh Kumar', '9876543210', 'Security', 'male', '15/08/1985',
-       '"12, Shivaji Nagar, Pune"', 'aadhaar', '123412341234', 'Sunita Kumar', '9876543211', '1']
+       '"12, Shivaji Nagar, Pune"', 'aadhaar', '123412341234', 'Sunita Kumar', '9876543211', '1', 'night']
     : ['Lakshmi Devi', '9823456780', 'Maid', 'female', '02/03/1990',
-       '"Flat 4, Anand Chawl, Mumbai"', 'voter_id', 'ABC1234567', 'Ravi Devi', '9823456781', '2'];
+       '"Flat 4, Anand Chawl, Mumbai"', 'voter_id', 'ABC1234567', 'Ravi Devi', '9823456781', '2', 'day'];
   return `${header}\n${example.join(",")}\n`;
 }
