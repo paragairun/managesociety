@@ -53,11 +53,13 @@ describe("loading a database row into the edit form", () => {
       gender: "male", date_of_birth: "1985-08-15", address: "12, MG Road",
       id_type: "aadhaar", id_number: "XXXXXXXX9012",
       emergency_contact: null, emergency_phone: null, device_pin: "14",
+      shift: "day",
     });
     expect(v).toEqual({
       gender: "male", date_of_birth: "1985-08-15", address: "12, MG Road",
       id_type: "aadhaar", id_number: "XXXXXXXX9012",
       emergency_contact: "", emergency_phone: "", device_pin: "14",
+      shift: "day",
     });
   });
 
@@ -75,6 +77,7 @@ describe("loading a database row into the edit form", () => {
       gender: "female", date_of_birth: "1990-03-02", address: "Flat 4",
       id_type: "voter_id", id_number: "ABC1234567",
       emergency_contact: "Ravi", emergency_phone: "9823456781", device_pin: "7",
+      shift: "day",
     };
     expect(profileFieldsToRow(profileFieldsFromRow(original))).toEqual(original);
   });
@@ -89,5 +92,37 @@ describe("other validation still holds", () => {
   });
   it("accepts a fully empty profile", () => {
     expect(validateProfileFields(f())).toBe(null);
+  });
+});
+
+describe("shift", () => {
+  it("defaults a new profile to day shift", () => {
+    expect(emptyProfileFields().shift).toBe("day");
+  });
+
+  it("stores night shift and reads it back", () => {
+    const form = { ...emptyProfileFields(), shift: "night" };
+    const row = profileFieldsToRow(form);
+    expect(row.shift).toBe("night");
+    expect(profileFieldsFromRow(row).shift).toBe("night");
+  });
+
+  it("never writes null for shift, since the column is NOT NULL", () => {
+    expect(profileFieldsToRow({ ...emptyProfileFields(), shift: "" }).shift).toBe("day");
+  });
+
+  it("falls back to day for a value the database would reject", () => {
+    expect(profileFieldsToRow({ ...emptyProfileFields(), shift: "evening" }).shift).toBe("day");
+    expect(profileFieldsFromRow({ shift: "evening" }).shift).toBe("day");
+  });
+
+  it("reads a legacy row with no shift column as day shift", () => {
+    expect(profileFieldsFromRow({ gender: "male" }).shift).toBe("day");
+  });
+
+  it("rejects a shift the database has no value for", () => {
+    expect(validateProfileFields({ ...emptyProfileFields(), shift: "evening" }))
+      .toMatch(/day or night/i);
+    expect(validateProfileFields({ ...emptyProfileFields(), shift: "night" })).toBeNull();
   });
 });
