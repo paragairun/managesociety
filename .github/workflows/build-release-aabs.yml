@@ -13,8 +13,8 @@ name: Build Release AABs (Play Store)
 #   Both apps get the same version in a run.
 #
 # SAFETY CHECKS (a build fails rather than ship something Play/users can't use):
-#   - each app must keep its permanent application id (in.visitorpasses.guard /
-#     in.visitorpasses.resident). Play only accepts updates with the SAME id and
+#   - each app must keep its permanent application id (in.managesociety.guard /
+#     in.managesociety.resident). Play only accepts updates with the SAME id and
 #     google-services.json (push) is registered for it; renaming it broke the
 #     builds on 2026-10-04.
 #   - each app must open its managesociety.in login URL.
@@ -71,10 +71,10 @@ jobs:
       matrix:
         include:
           - role: resident
-            app_id: in.visitorpasses.resident
+            app_id: in.managesociety.resident
             secret_prefix: RESIDENT
           - role: guard
-            app_id: in.visitorpasses.guard
+            app_id: in.managesociety.guard
             secret_prefix: GUARD
     env:
       APP_DIR: mobile-${{ matrix.role }}
@@ -91,7 +91,7 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
 
