@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
 // ── App identity: DO NOT CHANGE ──────────────────────────────────────────────
-// applicationId "in.visitorpasses.resident" is this app's permanent identity on
+// applicationId "in.managesociety.resident" is this app's permanent identity on
 // Google Play: Play only accepts updates with the SAME id, and
 // google-services.json (Firebase / push) is registered for this id. Renaming
 // it to in.managesociety.resident broke every build and would have made Play treat
@@ -16,7 +16,7 @@ def appVersionCode = (project.findProperty('appVersionCode') ?: '3').toString().
 def appVersionName = (project.findProperty('appVersionName') ?: '3.0').toString()
 
 android {
-    namespace = "in.visitorpasses.resident"
+    namespace = "in.managesociety.resident"
     compileSdk = rootProject.ext.compileSdkVersion
     // Explicit, committed debug keystore so every build (local or CI) signs
     // with the SAME certificate -- otherwise Gradle auto-generates a NEW,
@@ -40,7 +40,7 @@ android {
         }
     }
     defaultConfig {
-        applicationId "in.visitorpasses.resident"
+        applicationId "in.managesociety.resident"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode appVersionCode
