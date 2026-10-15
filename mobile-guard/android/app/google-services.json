@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:179899903887:android:a42b4fc7629f497d8a25fa",
         "android_client_info": {
-          "package_name": "in.visitorpasses.guard"
+          "package_name": "in.managesociety.guard"
         }
       },
       "oauth_client": [],
@@ -28,7 +28,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:179899903887:android:93b8d0de479d833b8a25fa",
         "android_client_info": {
-          "package_name": "in.visitorpasses.resident"
+          "package_name": "in.managesociety.resident"
         }
       },
       "oauth_client": [],
