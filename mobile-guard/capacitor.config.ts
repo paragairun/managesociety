@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   // appId is the permanent Play/Firebase identity: keep it (see android/app/build.gradle).
-  appId: 'in.visitorpasses.guard',
+  appId: 'in.managesociety.guard',
   appName: 'ManageSociety Guard',
   webDir: 'www',
   // Thin native shell around the live site -- always loads the current
