@@ -7,13 +7,38 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:179899903887:android:93b8d0de479d833b8a25fa",
+        "mobilesdk_app_id": "1:179899903887:android:bf5248b6170b7f148a25fa",
         "android_client_info": {
-          "package_name": "in.visitorpasses.resident"
+          "package_name": "in.managesociety.guard"
         }
       },
       "oauth_client": [],
       "api_key": [
+        {
+          "current_key": "AIzaSyBsUZrljbQH-Uij1PKCInGZybccQlaJP4Q"
+        },
+        {
+          "current_key": "AIzaSyDlx5O6HabORRMcpptInfsAzvPyKnTq-IE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:179899903887:android:07a1e7e00ae39cd58a25fa",
+        "android_client_info": {
+          "package_name": "in.managesociety.resident"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBsUZrljbQH-Uij1PKCInGZybccQlaJP4Q"
+        },
         {
           "current_key": "AIzaSyDlx5O6HabORRMcpptInfsAzvPyKnTq-IE"
         }
