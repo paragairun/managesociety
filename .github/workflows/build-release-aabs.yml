@@ -79,7 +79,7 @@ jobs:
     env:
       APP_DIR: mobile-${{ matrix.role }}
       APP_ID: ${{ matrix.app_id }}
-      EXPECTED_URL: https://managesociety.in/login/society?role=${{ matrix.role }}
+      EXPECTED_URL: https://managesociety.in/login/society?role=${{ matrix.role }}&utm_source=android_app&utm_medium=app
       VERSION_CODE: ${{ needs.version.outputs.code }}
       VERSION_NAME: ${{ needs.version.outputs.name }}
     name: build-${{ matrix.role }}-release
