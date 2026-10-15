@@ -4,7 +4,7 @@ name: Build Mobile APKs
 # cloud, since building an Android app normally requires the Android SDK and
 # Gradle installed locally (which this project doesn't assume you have).
 # Both apps are thin native wrappers that load the live site
-# (visitorpasses.in/resident and /guard) -- ordinary web app changes show up
+# (managesociety.in/resident and /guard) -- ordinary web app changes show up
 # automatically with no rebuild needed. Only rebuild when the native shell
 # itself changes (icon, permissions, app name, etc).
 #
@@ -38,7 +38,7 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - name: Install dependencies
         working-directory: mobile-resident
@@ -57,7 +57,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: visitorpasses-resident-debug-apk
+          name: managesociety-resident-debug-apk
           path: mobile-resident/android/app/build/outputs/apk/debug/app-debug.apk
 
   build-guard:
@@ -70,7 +70,7 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - name: Install dependencies
         working-directory: mobile-guard
@@ -89,5 +89,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: visitorpasses-guard-debug-apk
+          name: managesociety-guard-debug-apk
           path: mobile-guard/android/app/build/outputs/apk/debug/app-debug.apk
