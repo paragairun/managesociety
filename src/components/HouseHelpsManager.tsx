@@ -15,7 +15,7 @@ import FingerprintEnroll from "@/components/FingerprintEnroll";
 import StaffBulkUpload from "@/components/StaffBulkUpload";
 import { useSocietyStructure } from "@/hooks/useSocietyStructure";
 
-const HELP_TYPES = ["Maid", "Driver", "Cook", "Nurse", "Nanny", "Personal Security", "Other"];
+import { HELP_TYPES } from "@/lib/staffRoles";
 
 interface HouseHelp {
   id: string; name: string; help_type: string; phone: string | null;

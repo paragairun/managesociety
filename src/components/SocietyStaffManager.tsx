@@ -13,10 +13,28 @@ import StaffIdCard from "@/components/StaffIdCard";
 import StaffProfileFields, { emptyProfileFields, validateProfileFields, profileFieldsToRow, profileFieldsFromRow } from "@/components/StaffProfileFields";
 import FingerprintEnroll from "@/components/FingerprintEnroll";
 import StaffBulkUpload from "@/components/StaffBulkUpload";
+import {
+  rolesFor, CATEGORY_LABEL, CATEGORY_TABLE, CATEGORY_ROLE_COLUMN,
+  type StaffCategory,
+} from "@/lib/staffRoles";
 
-const STAFF_TYPES = ["Security", "Housekeeping", "Accountant", "Facility Manager", "Electrician", "Plumber", "Gardener", "Lift Operator", "Other"];
-
+/**
+ * One screen over BOTH kinds of person. Adding a house help was simply
+ * missing from the admin panel - HouseHelpsManager is mounted only on
+ * the resident dashboard - so an admin could see house helps in
+ * attendance and on the fingerprint mapping screen but had no way to
+ * create one.
+ *
+ * The two tables stay separate (see staffRoles.ts for why): a house
+ * help belongs to a resident and is linked to their flat. This
+ * component reads both, tags each row with its category, and writes
+ * back to whichever table the row came from.
+ */
 interface StaffMember {
+  /** Which table this row came from. Not a stored column. */
+  category: StaffCategory;
+  /** staff_type or help_type, normalised to one field for rendering. */
+  role: string;
   id: string; name: string; staff_type: string; phone: string | null;
   photo_base64: string | null; qr_code: string; is_active: boolean; fingerprint_enrolled?: boolean; created_at: string;
   // Profile columns, needed to prefill the edit dialog. fetchStaff does
@@ -27,7 +45,15 @@ interface StaffMember {
   device_pin?: string | null;
 }
 
-const emptyForm = () => ({ name: "", staff_type: "", phone: "", photo_base64: "", ...emptyProfileFields() });
+const emptyForm = () => ({
+  category: "society_staff" as StaffCategory,
+  name: "", staff_type: "", phone: "", photo_base64: "", ...emptyProfileFields(),
+});
+
+/** Rows after the Staff / House help filter is applied. */
+function applyFilter(rows: StaffMember[], filter: "all" | StaffCategory): StaffMember[] {
+  return filter === "all" ? rows : rows.filter((r) => r.category === filter);
+}
 
 const SocietyStaffManager = () => {
   const { societyId, societyName } = useAuth();
@@ -43,12 +69,45 @@ const SocietyStaffManager = () => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [fingerprintFor, setFingerprintFor] = useState<{ id: string; name: string } | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | StaffCategory>("all");
 
   const fetchStaff = useCallback(async () => {
     if (!societyId) return;
     setLoading(true);
-    const { data } = await supabase.from("staff_members").select("*").eq("society_id", societyId).order("name");
-    setStaff((data ?? []) as StaffMember[]);
+    setLoadError(null);
+
+    const [staffRes, helpRes] = await Promise.all([
+      supabase.from("staff_members").select("*").eq("society_id", societyId).order("name"),
+      supabase.from("house_helps").select("*").eq("society_id", societyId).order("name"),
+    ]);
+
+    // Reported rather than discarded: an empty list and a refused query
+    // look identical on screen otherwise, which is how a broken RLS
+    // policy can pass for "no staff yet".
+    if (staffRes.error || helpRes.error) {
+      setLoadError((staffRes.error ?? helpRes.error)!.message);
+      setStaff([]);
+      setLoading(false);
+      return;
+    }
+
+    const tag = (rows: unknown[], category: StaffCategory): StaffMember[] =>
+      (rows ?? []).map((r) => {
+        const row = r as Record<string, unknown>;
+        return {
+          ...(row as unknown as StaffMember),
+          category,
+          role: String(row[CATEGORY_ROLE_COLUMN[category]] ?? ""),
+        };
+      });
+
+    const merged = [
+      ...tag(staffRes.data ?? [], "society_staff"),
+      ...tag(helpRes.data ?? [], "house_help"),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+
+    setStaff(merged);
     setLoading(false);
   }, [societyId]);
 
@@ -61,7 +120,8 @@ const SocietyStaffManager = () => {
     reader.readAsDataURL(file);
   };
 
-  const generateQr = () => `STF-${crypto.randomUUID().replace(/-/g,"").slice(0,12).toUpperCase()}`;
+  const generateQr = (category: StaffCategory) =>
+    `${category === "house_help" ? "HLP" : "STF"}-${crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`;
 
   const openAdd = () => {
     setEditingId(null);
@@ -72,8 +132,9 @@ const SocietyStaffManager = () => {
   const openEdit = (s: StaffMember) => {
     setEditingId(s.id);
     setForm({
+      category: s.category,
       name: s.name,
-      staff_type: s.staff_type,
+      staff_type: s.role,
       phone: s.phone ?? "",
       photo_base64: s.photo_base64 ?? "",
       ...profileFieldsFromRow(s as unknown as Record<string, unknown>),
@@ -95,23 +156,45 @@ const SocietyStaffManager = () => {
    */
   const handleSave = async () => {
     if (!form.name.trim()) { toast({ title: "Enter staff name", variant: "destructive" }); return; }
-    if (!form.staff_type) { toast({ title: "Select staff type", variant: "destructive" }); return; }
+    if (!form.staff_type) {
+      toast({ title: `Select ${CATEGORY_LABEL[form.category].toLowerCase()} role`, variant: "destructive" });
+      return;
+    }
     const problem = validateProfileFields(form);
     if (problem) { toast({ title: problem, variant: "destructive" }); return; }
     if (!societyId) return;
 
     setSaving(true);
+    // The role lands in staff_type or help_type depending on which
+    // table the row belongs to; everything else is identical.
+    const table = CATEGORY_TABLE[form.category];
     const fields = {
       name: form.name.trim(),
-      staff_type: form.staff_type,
+      [CATEGORY_ROLE_COLUMN[form.category]]: form.staff_type,
       phone: form.phone.trim() || null,
       photo_base64: form.photo_base64 || null,
       ...profileFieldsToRow(form),
     };
 
+    // src/integrations/supabase/types.ts predates the profile columns
+    // (gender, device_pin, shift and the rest) and cannot express a
+    // table chosen at runtime, so it rejects this payload. The cast is
+    // narrow and deliberate; regenerating types.ts removes the need for
+    // it. Compiles either way - tsconfig.app.json has strict: false -
+    // but an unexplained cast is worse than an explained one.
+    type Writer = {
+      update: (v: Record<string, unknown>) => {
+        eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
+      };
+      insert: (v: Record<string, unknown>) => Promise<{ error: { message: string } | null }>;
+    };
+    const writer = supabase.from(table) as unknown as Writer;
+
     const { error } = editingId
-      ? await supabase.from("staff_members").update(fields).eq("id", editingId)
-      : await supabase.from("staff_members").insert({ ...fields, society_id: societyId, qr_code: generateQr() });
+      ? await writer.update(fields).eq("id", editingId)
+      : await writer.insert({
+          ...fields, society_id: societyId, qr_code: generateQr(form.category),
+        });
     setSaving(false);
 
     if (error) {
@@ -139,12 +222,12 @@ const SocietyStaffManager = () => {
   };
 
   const toggleActive = async (s: StaffMember) => {
-    await supabase.from("staff_members").update({ is_active: !s.is_active }).eq("id", s.id);
+    await supabase.from(CATEGORY_TABLE[s.category]).update({ is_active: !s.is_active }).eq("id", s.id);
     await fetchStaff();
   };
 
   const deleteStaff = async (s: StaffMember) => {
-    const { error } = await supabase.from("staff_members").delete().eq("id", s.id);
+    const { error } = await supabase.from(CATEGORY_TABLE[s.category]).delete().eq("id", s.id);
     if (error) { toast({ title: "Delete failed", description: error.message, variant: "destructive" }); return; }
     toast({ title: `${s.name} removed` });
     await fetchStaff();
@@ -175,7 +258,7 @@ const SocietyStaffManager = () => {
           <p className="text-sm text-muted-foreground text-center py-6">No staff registered yet.</p>
         ) : (
           <div className="space-y-2">
-            {staff.map((s) => (
+            {applyFilter(staff, filter).map((s) => (
               <div key={s.id} className={`flex items-center justify-between p-3 rounded-lg border ${s.is_active ? "border-border bg-secondary/30" : "border-border/40 bg-secondary/10 opacity-60"}`}>
                 <div className="flex items-center gap-3">
                   {s.photo_base64 ? (
@@ -187,7 +270,14 @@ const SocietyStaffManager = () => {
                   )}
                   <div>
                     <p className="font-medium text-sm">{s.name}</p>
-                    <p className="text-xs text-muted-foreground">{s.staff_type}{s.phone ? ` • ${s.phone}` : ""}</p>
+                    <p className="text-xs text-muted-foreground">
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium mr-1.5 ${
+                        s.category === "house_help"
+                          ? "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
+                          : "bg-sky-100 text-sky-900 dark:bg-sky-900/40 dark:text-sky-200"
+                      }`}>{CATEGORY_LABEL[s.category]}</span>
+                      {s.role}{s.phone ? ` • ${s.phone}` : ""}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -219,10 +309,34 @@ const SocietyStaffManager = () => {
           <div className="space-y-3">
             <div className="space-y-1"><Label>Name *</Label><Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Full name" /></div>
             <div className="space-y-1">
-              <Label>Role / Type *</Label>
+              <Label>Type *</Label>
+              <Select
+                value={form.category}
+                disabled={!!editingId}
+                onValueChange={(v) =>
+                  // Changing category changes which roles are valid, so
+                  // the role is cleared rather than left pointing at a
+                  // value the new list does not contain.
+                  setForm((p) => ({ ...p, category: v as StaffCategory, staff_type: "" }))
+                }
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="society_staff">{CATEGORY_LABEL.society_staff} (employed by the society)</SelectItem>
+                  <SelectItem value="house_help">{CATEGORY_LABEL.house_help} (engaged by a resident)</SelectItem>
+                </SelectContent>
+              </Select>
+              {editingId && (
+                <p className="text-xs text-muted-foreground">
+                  Type cannot be changed after creation - the record lives in a different table.
+                </p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label>Role *</Label>
               <Select value={form.staff_type} onValueChange={(v) => setForm((p) => ({ ...p, staff_type: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select role..." /></SelectTrigger>
-                <SelectContent>{STAFF_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                <SelectContent>{rolesFor(form.category).map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1"><Label>Phone (optional)</Label><Input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="+91 98765 43210" inputMode="tel" /></div>
