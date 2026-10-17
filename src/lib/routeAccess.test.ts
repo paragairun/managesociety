@@ -190,3 +190,38 @@ describe("no combination of inputs lets an unauthenticated user in", () => {
     }
   });
 });
+
+describe("manager reaches the admin dashboard", () => {
+  const base = {
+    loading: false, hasUser: true, requiredRole: "admin" as const,
+    urlSlug: "triumph", userSlug: "triumph", pathBase: "admin",
+  };
+
+  it("lets a manager open an admin route", () => {
+    expect(decideRouteAccess({ ...base, roles: ["manager"] }).action).toBe("allow");
+  });
+
+  it("still scopes a manager to their own society", () => {
+    const d = decideRouteAccess({ ...base, roles: ["manager"], urlSlug: "other-society" });
+    expect(d.action).toBe("deny");
+    expect(d.action === "deny" && d.reason).toBe("wrong-society");
+  });
+
+  it("does not let a manager open a guard route", () => {
+    // Only the admin route accepts a manager. Nothing else does.
+    const d = decideRouteAccess({ ...base, roles: ["manager"], requiredRole: "guard", pathBase: "guard" });
+    expect(d.action).toBe("deny");
+    expect(d.action === "deny" && d.reason).toBe("wrong-role");
+  });
+
+  it("does not let a resident in just because managers are allowed", () => {
+    const d = decideRouteAccess({ ...base, roles: ["resident"] });
+    expect(d.action).toBe("deny");
+  });
+
+  it("redirects a slugless manager to their own society", () => {
+    const d = decideRouteAccess({ ...base, roles: ["manager"], urlSlug: null });
+    expect(d.action).toBe("redirect");
+    expect(d.action === "redirect" && d.to).toBe("/triumph/admin/dashboard");
+  });
+});

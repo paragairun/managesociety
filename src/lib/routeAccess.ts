@@ -24,7 +24,26 @@
  * honest mistakes and casual URL edits.
  */
 
-export type AppRole = "guard" | "resident" | "admin" | "visitor" | "super_admin";
+import { type AppRole } from "./permissions";
+export type { AppRole };
+
+/**
+ * Roles that satisfy a route's required role without being it.
+ *
+ * A manager is an administrator with two powers removed, so they open
+ * the same dashboard. What they may do once inside is decided by
+ * permissions.ts, not here — this answers only "may you through the
+ * door". Kept as data rather than an `||` inside the check so that
+ * adding a future role is one line and is covered by the same tests.
+ */
+const ROLE_SATISFIES: Partial<Record<AppRole, AppRole[]>> = {
+  admin: ["manager"],
+};
+
+function holdsRequiredRole(roles: AppRole[], required: AppRole): boolean {
+  if (roles.includes(required)) return true;
+  return (ROLE_SATISFIES[required] || []).some((r) => roles.includes(r));
+}
 
 export interface AccessInput {
   loading: boolean;
@@ -66,7 +85,7 @@ export function decideRouteAccess(input: AccessInput): AccessDecision {
     return { action: "redirect", to: "/super-admin", reason: "super-admin" };
   }
 
-  if (!roles.includes(requiredRole)) {
+  if (!holdsRequiredRole(roles, requiredRole)) {
     return {
       action: "deny",
       reason: "wrong-role",
