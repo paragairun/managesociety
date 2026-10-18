@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, QrCode, Car, BarChart3, Trash2, ChevronDown, ChevronUp, Link as LinkIcon, Users, ClipboardList, Upload, UserPlus, ClipboardCheck, FileSpreadsheet, Activity, TrendingUp, Check, ChevronsUpDown, Search, Radio, Download, User, Wallet, Home, Sparkles, Calendar } from "lucide-react";
+import { Plus, QrCode, Car, BarChart3, Trash2, ChevronDown, ChevronUp, Link as LinkIcon, Users, ClipboardList, Upload, UserPlus, ClipboardCheck, FileSpreadsheet, Activity, TrendingUp, Check, ChevronsUpDown, Search, Radio, Download, User, Wallet, Home, Sparkles, Calendar, Zap } from "lucide-react";
 import RegistrationRequests from "@/components/RegistrationRequests";
 import BarrierDevicesAdmin from "@/components/BarrierDevicesAdmin";
 import CsvUpload from "@/components/CsvUpload";
@@ -35,6 +35,7 @@ import MaintenanceBillingSetup from "@/components/MaintenanceBillingSetup";
 import AmenitiesSetup from "@/components/AmenitiesSetup";
 import AmenityBookingsAdmin from "@/components/AmenityBookingsAdmin";
 import AdminHome from "@/components/AdminHome";
+import EvChargingAdmin from "@/components/EvChargingAdmin";
 
 type Vehicle = Tables<"vehicles">;
 type EntryLog = Tables<"entry_logs">;
@@ -53,11 +54,12 @@ const NAV: NavItem[] = [
   { id: "registry", title: "Vehicle Registry", icon: Car },
   { id: "visitor-qr", title: "Visitor Form QR", icon: LinkIcon },
   { id: "barriers", title: "Boom Barriers", icon: Radio },
-  { id: "staff", title: "Staff", icon: Users },
+  { id: "staff", title: "Staff & House Helps", icon: Users },
   { id: "staff-logs", title: "Staff Attendance", icon: ClipboardList },
   { id: "billing-setup", title: "Maintenance Billing", icon: Wallet },
   { id: "amenities-setup", title: "Amenities Setup", icon: Sparkles },
   { id: "amenities-bookings", title: "Amenity Bookings", icon: Calendar },
+  { id: "ev-charging", title: "EV Charging", icon: Zap },
   { id: "profile", title: "My Profile", icon: User },
 ];
 
@@ -609,6 +611,8 @@ const AdminPanel = () => {
       {activeView === "billing-setup" && <MaintenanceBillingSetup />}
       {activeView === "amenities-setup" && <AmenitiesSetup />}
       {activeView === "amenities-bookings" && <AmenityBookingsAdmin />}
+      {activeView === "ev-charging" && <EvChargingAdmin />}
+
       {activeView === "profile" && <AdminProfile />}
     </DashboardShell>
   );

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Car, ClipboardList, QrCode, Plus, Trash2, ClipboardCheck, User, Home, Save, Users, Copy, Package, Wallet, Sparkles, AlertTriangle } from "lucide-react";
+import { Car, ClipboardList, QrCode, Plus, Trash2, ClipboardCheck, User, Home, Save, Users, Copy, Package, Wallet, Sparkles, AlertTriangle , Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import ResidentHome from "@/components/ResidentHome";
 import AmenityBooking from "@/components/AmenityBooking";
 import StaffAttendanceLog from "@/components/StaffAttendanceLog";
 import ResidentDeliveryApprovals from "@/components/ResidentDeliveryApprovals";
+import EvChargingResident from "@/components/EvChargingResident";
 
 interface GuestPass {
   id: string; visitor_name: string; phone: string; vehicle_number: string;
@@ -51,6 +52,7 @@ const PRIMARY_NAV: NavItem[] = [
   { id: "history", title: "Visit History", icon: ClipboardList },
   { id: "dues", title: "My Dues", icon: Wallet },
   { id: "amenities", title: "Amenities", icon: Sparkles },
+  { id: "ev", title: "EV Charging", icon: Zap },
   { id: "profile", title: "My Profile", icon: User },
   { id: "helps", title: "House Helps", icon: Users },
   { id: "help-attendance", title: "Help Attendance", icon: ClipboardList },
@@ -64,6 +66,7 @@ const CHILD_NAV: NavItem[] = [
   { id: "history", title: "Visit History", icon: ClipboardList },
   { id: "dues", title: "My Dues", icon: Wallet },
   { id: "amenities", title: "Amenities", icon: Sparkles },
+  { id: "ev", title: "EV Charging", icon: Zap },
   { id: "profile", title: "My Profile", icon: User },
 ];
 
@@ -769,6 +772,8 @@ const ResidentPortal = () => {
       {activeView === "vehicles" && renderVehicles()}
       {activeView === "requests" && !isChild && renderRequests()}
       {activeView === "history" && renderHistory()}
+      {activeView === "ev" && <EvChargingResident />}
+
       {activeView === "profile" && renderProfile()}
       {activeView === "helps" && <HouseHelpsManager residentFlats={flats} />}
       {activeView === "dues" && <MyDues residentFlats={flats} formatFlat={formatFlat} />}
