@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { isSelfServiceRole, ROLE_LABEL, ROLE_BLURB } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { UserPlus, CheckCircle } from "lucide-react";
@@ -14,7 +15,16 @@ const ROLE_LABELS: Record<string, string> = {
   guard: "Security Guard",
   resident: "Resident",
   admin: "Committee Admin",
+  manager: "Manager",
 };
+
+/**
+ * ?role=admin opens a page where the applicant chooses between
+ * Administrator and Manager, because the two are approved through the
+ * same committee queue and differ only in what they may change.
+ * Guards and residents keep their own single-purpose pages.
+ */
+const COMMITTEE_ROLES = ["admin", "manager"] as const;
 
 interface SocietyOption {
   id: string;
@@ -24,7 +34,13 @@ interface SocietyOption {
 const Register = () => {
   const [searchParams] = useSearchParams();
   const roleFromUrl = searchParams.get("role") || "";
-  const validRole = ["guard", "resident", "admin"].includes(roleFromUrl) ? roleFromUrl : "";
+  const entryRole = isSelfServiceRole(roleFromUrl) ? roleFromUrl : "";
+
+  // On the committee page the applicant picks; everywhere else the URL
+  // decides and the choice is not offered.
+  const isCommitteePage = (COMMITTEE_ROLES as readonly string[]).includes(entryRole);
+  const [chosenRole, setChosenRole] = useState<string>(entryRole);
+  const validRole = isCommitteePage ? chosenRole : entryRole;
 
   const [societies, setSocieties] = useState<SocietyOption[]>([]);
   const [form, setForm] = useState({
@@ -158,6 +174,21 @@ const Register = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {isCommitteePage && (
+              <div className="space-y-2">
+                <Label>Role *</Label>
+                <Select value={chosenRole} onValueChange={setChosenRole}>
+                  <SelectTrigger className="touch-target"><SelectValue placeholder="Select a role" /></SelectTrigger>
+                  <SelectContent>
+                    {COMMITTEE_ROLES.map((r) => (
+                      <SelectItem key={r} value={r}>{ROLE_LABEL[r]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">{ROLE_BLURB[validRole]}</p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Society *</Label>
               <Select value={form.society_id} onValueChange={(v) => setForm((p) => ({ ...p, society_id: v }))}>
