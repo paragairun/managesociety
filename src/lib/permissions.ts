@@ -119,6 +119,46 @@ export function isManagerOnly(roles: AppRole[] | undefined | null): boolean {
 }
 
 /**
+ * Roles a person may request for themselves on the public /register
+ * page, and the ONLY roles approve-registration will grant.
+ *
+ * registration_requests.requested_role is plain text, the insert is
+ * public ("Anyone can submit registration request"), and the approval
+ * function used to write that value straight into user_roles. The
+ * client list on /register was therefore the only gate, and a client
+ * list is not a gate — anyone could POST a request naming any role in
+ * the enum, including super_admin, which is not society-scoped. The
+ * only thing left was an admin noticing the badge in the queue.
+ *
+ * This list is mirrored by a CHECK constraint on the table and by a
+ * guard inside approve-registration, so refusing it does not depend on
+ * either the page or the reviewer.
+ *
+ * super_admin is absent deliberately and must stay absent.
+ */
+export const SELF_SERVICE_ROLES: AppRole[] = ["guard", "resident", "admin", "manager"];
+
+export function isSelfServiceRole(role: string | null | undefined): boolean {
+  return !!role && (SELF_SERVICE_ROLES as string[]).includes(role);
+}
+
+/** What the register page calls each role. */
+export const ROLE_LABEL: Record<string, string> = {
+  admin: "Administrator",
+  manager: "Manager",
+  guard: "Security Guard",
+  resident: "Resident",
+};
+
+/** One line saying what the role can do, shown beside the choice. */
+export const ROLE_BLURB: Record<string, string> = {
+  admin: "Full access, including members and other admins",
+  manager: "Runs the society day to day, but cannot change members or admins",
+  guard: "Gate duty: visitors, vehicles and staff attendance",
+  resident: "Flat owner or tenant",
+};
+
+/**
  * The label shown next to a restricted control, so a manager is told why
  * something is unavailable instead of finding a dead button.
  */

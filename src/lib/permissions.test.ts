@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   can, capabilitiesOf, canOpenAdminPanel, isManagerOnly,
+  SELF_SERVICE_ROLES, isSelfServiceRole, ROLE_LABEL, ROLE_BLURB,
   type AppRole, type Capability,
 } from "./permissions";
 
@@ -113,5 +114,36 @@ describe("isManagerOnly", () => {
   it("is false for everyone else", () => {
     expect(isManagerOnly(["admin"])).toBe(false);
     expect(isManagerOnly([])).toBe(false);
+  });
+});
+
+describe("self-service roles on the public register page", () => {
+  it("offers the four roles a person may request", () => {
+    expect([...SELF_SERVICE_ROLES].sort()).toEqual(["admin", "guard", "manager", "resident"]);
+  });
+
+  it("never offers super_admin", () => {
+    // super_admin is not society-scoped. Granting it through a public
+    // form would hand someone every society in the database.
+    expect(SELF_SERVICE_ROLES).not.toContain("super_admin");
+    expect(isSelfServiceRole("super_admin")).toBe(false);
+  });
+
+  it("rejects anything not on the list", () => {
+    for (const r of ["super_admin", "visitor", "", null, undefined, "ADMIN", "owner"]) {
+      expect(isSelfServiceRole(r as string), String(r)).toBe(false);
+    }
+  });
+
+  it("accepts each listed role", () => {
+    for (const r of SELF_SERVICE_ROLES) expect(isSelfServiceRole(r)).toBe(true);
+  });
+
+  it("has a label and a blurb for every role it offers", () => {
+    // A role with no label renders as a blank option on the form.
+    for (const r of SELF_SERVICE_ROLES) {
+      expect(ROLE_LABEL[r], `no label for ${r}`).toBeTruthy();
+      expect(ROLE_BLURB[r], `no blurb for ${r}`).toBeTruthy();
+    }
   });
 });
