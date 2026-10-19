@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { roleSatisfies, type AppRole } from "@/lib/permissions";
 import { Navigate, Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,10 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface RoleLoginPageProps {
   roleName: string;
+  /**
+   * The role this page is for. A manager signs in through the admin
+   * page, because they use the admin dashboard — see roleSatisfies().
+   */
   roleKey: "guard" | "resident" | "admin" | "visitor";
   icon: LucideIcon;
   accentClass: string;
@@ -97,7 +102,10 @@ const RoleLoginPage = ({ roleName, roleKey, icon: Icon, accentClass, dashboardPa
     return <Navigate to="/super-admin" replace />;
   }
 
-  if (user && roles.includes(roleKey)) {
+  // roleSatisfies, not roles.includes: a manager holds only 'manager'
+  // and would otherwise be told they have the wrong role on the very
+  // page they are supposed to use.
+  if (user && roleSatisfies(roles as AppRole[], roleKey as AppRole)) {
     // Verify the user belongs to the society in the URL
     if (societySlug && urlSlug && societySlug !== urlSlug) {
       return (
@@ -121,7 +129,7 @@ const RoleLoginPage = ({ roleName, roleKey, icon: Icon, accentClass, dashboardPa
 
   // Authenticated, but with a role that doesn't match this specific login
   // page (e.g. a resident's credentials entered on the guard login page).
-  if (user && !roles.includes(roleKey) && !roles.includes("super_admin")) {
+  if (user && !roleSatisfies(roles as AppRole[], roleKey as AppRole) && !roles.includes("super_admin")) {
     const returnPath = urlSlug ? `/${urlSlug}/${roleKey}` : `/${roleKey}`;
     return <WrongRolePage roleName={roleName} returnPath={returnPath} signOut={signOut} />;
   }
