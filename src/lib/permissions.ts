@@ -108,6 +108,33 @@ export function capabilitiesOf(roles: AppRole[] | undefined | null): Capability[
  */
 export const ADMIN_PANEL_ROLES: AppRole[] = ["admin", "manager"];
 
+/**
+ * Roles that satisfy a required role without being it.
+ *
+ * A manager is an administrator with two powers removed, so they use
+ * the admin login page and the admin dashboard; what they may do once
+ * inside is decided by the capability table above, not here.
+ *
+ * This lived privately inside routeAccess.ts, which guards the
+ * dashboard route — while RoleLoginPage kept its own separate
+ * `roles.includes(roleKey)` check. The result was a manager who passed
+ * the route guard but was refused by the login page before ever
+ * reaching it. One table now answers the question for both.
+ */
+export const ROLE_SATISFIES: Partial<Record<AppRole, AppRole[]>> = {
+  admin: ["manager"],
+};
+
+/** Does the user hold the required role, or one that stands in for it? */
+export function roleSatisfies(
+  roles: AppRole[] | undefined | null,
+  required: AppRole,
+): boolean {
+  const held = roles || [];
+  if (held.includes(required)) return true;
+  return (ROLE_SATISFIES[required] || []).some((r) => held.includes(r));
+}
+
 export function canOpenAdminPanel(roles: AppRole[] | undefined | null): boolean {
   return (roles || []).some((r) => ADMIN_PANEL_ROLES.includes(r));
 }

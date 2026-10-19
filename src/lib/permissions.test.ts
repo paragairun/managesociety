@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   can, capabilitiesOf, canOpenAdminPanel, isManagerOnly,
-  SELF_SERVICE_ROLES, isSelfServiceRole, ROLE_LABEL, ROLE_BLURB,
+  SELF_SERVICE_ROLES, isSelfServiceRole, ROLE_LABEL, ROLE_BLURB, roleSatisfies,
   type AppRole, type Capability,
 } from "./permissions";
 
@@ -144,6 +144,43 @@ describe("self-service roles on the public register page", () => {
     for (const r of SELF_SERVICE_ROLES) {
       expect(ROLE_LABEL[r], `no label for ${r}`).toBeTruthy();
       expect(ROLE_BLURB[r], `no blurb for ${r}`).toBeTruthy();
+    }
+  });
+});
+
+describe("roleSatisfies — the login page and the route guard must agree", () => {
+  it("lets a manager satisfy an admin requirement", () => {
+    // This is the bug that stopped a manager signing in: the route
+    // guard accepted them, the login page refused them, so they were
+    // told they had the wrong role on the page meant for them.
+    expect(roleSatisfies(["manager"], "admin")).toBe(true);
+  });
+
+  it("still accepts an actual admin", () => {
+    expect(roleSatisfies(["admin"], "admin")).toBe(true);
+  });
+
+  it("does not let an admin requirement be met by anyone else", () => {
+    expect(roleSatisfies(["resident"], "admin")).toBe(false);
+    expect(roleSatisfies(["guard"], "admin")).toBe(false);
+    expect(roleSatisfies([], "admin")).toBe(false);
+    expect(roleSatisfies(undefined, "admin")).toBe(false);
+  });
+
+  it("does NOT let a manager satisfy guard or resident", () => {
+    // The stand-in is one-directional and only for the admin page.
+    expect(roleSatisfies(["manager"], "guard")).toBe(false);
+    expect(roleSatisfies(["manager"], "resident")).toBe(false);
+  });
+
+  it("is not symmetric — an admin does not become a manager", () => {
+    expect(roleSatisfies(["admin"], "manager")).toBe(false);
+  });
+
+  it("agrees with canOpenAdminPanel", () => {
+    // Two functions answering nearly the same question must not drift.
+    for (const roles of [["admin"], ["manager"], ["guard"], ["resident"], []] as AppRole[][]) {
+      expect(roleSatisfies(roles, "admin")).toBe(canOpenAdminPanel(roles));
     }
   });
 });
