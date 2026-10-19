@@ -185,6 +185,31 @@ Deno.serve(async (req) => {
       issuedTempPassword = userChosenPassword ? null : tempPassword;
     }
 
+    // Server-side allow-list. The /register page restricts what can be
+    // ASKED for, but that page is not the only way to create a request:
+    // the insert policy is "Anyone can submit registration request", so
+    // a crafted POST to the REST endpoint can name any value in the
+    // app_role enum. super_admin is in that enum and is not scoped to a
+    // society. Refusing here means approving a tampered request cannot
+    // escalate anyone, even if the reviewer clicks approve without
+    // reading the badge.
+    //
+    // Mirrors SELF_SERVICE_ROLES in src/lib/permissions.ts and the
+    // CHECK constraint in supabase/schema/registration_role_allowlist.sql.
+    const SELF_SERVICE_ROLES = ["guard", "resident", "admin", "manager"];
+    if (!SELF_SERVICE_ROLES.includes(regRequest.requested_role)) {
+      await adminClient
+        .from("registration_requests")
+        .update({ status: "rejected" })
+        .eq("id", regRequest.id);
+      return new Response(
+        JSON.stringify({
+          error: `Role "${regRequest.requested_role}" cannot be granted through registration. This request has been rejected.`,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const { error: roleError } = await adminClient.from("user_roles").insert({
       user_id: userId,
       role: regRequest.requested_role,
