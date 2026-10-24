@@ -1,4 +1,4 @@
-package in.visitorpasses.resident;
+package in.managesociety.guard;
 
 import com.getcapacitor.BridgeActivity;
 

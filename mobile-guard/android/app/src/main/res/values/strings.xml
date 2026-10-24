@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">ManageSociety Guard</string>
     <string name="title_activity_main">ManageSociety Guard</string>
-    <string name="package_name">in.visitorpasses.guard</string>
-    <string name="custom_url_scheme">in.visitorpasses.guard</string>
+    <string name="package_name">in.managesociety.guard</string>
+    <string name="custom_url_scheme">in.managesociety.guard</string>
 </resources>
