@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ManageSociety brand yellow — matches the adaptive icon background and
+         everything else on the site. See also ic_launcher_background.xml. -->
+    <color name="colorPrimary">#F2B83B</color>
+    <color name="colorPrimaryDark">#C9962B</color>
+    <color name="colorAccent">#F2B83B</color>
+</resources>
