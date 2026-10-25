@@ -127,7 +127,7 @@ const HouseHelpsManager = ({ residentFlats }: { residentFlats: ResidentFlat[] })
                   <>
                     <div className="mb-4">
                       <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Available house helps</h3>
-                      <p className="text-xs text-muted-foreground mb-2">Select a house help registered by the society admin and link it to your flat:</h3>
+                      <p className="text-xs text-muted-foreground mb-2">Select a house help registered by the society admin and link it to your flat:</p>
                       {available.map((h) => (
                         <div key={h.id} className="flex items-center justify-between p-2 rounded-lg border border-border bg-secondary/20">
                           <div className="flex items-center gap-3">
