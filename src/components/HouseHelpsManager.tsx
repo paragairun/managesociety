@@ -53,7 +53,11 @@ const HouseHelpsManager = ({ residentFlats }: { residentFlats: ResidentFlat[] })
 
     // 2. All active house helps registered by the society admin (not yet linked by this resident)
     const linkedIds = new Set(linkData?.map((l: { house_help_id: string }) => l.house_help_id) ?? []);
-    const { data: allHelps } = await supabase.from("house_helps").select("*").eq("society_id", societyId).eq("is_active", true);
+    const { data: allHelps, error: allHelpsErr } = await supabase.from("house_helps").select("*").eq("society_id", societyId).eq("is_active", true);
+    if (allHelpsErr) {
+      console.error("[HouseHelpsManager] Could not load available house helps:", allHelpsErr.message);
+      toast({ title: "Could not load available house helps", description: allHelpsErr.message, variant: "destructive" });
+    }
     const unlinked = (allHelps ?? []).filter((h: HouseHelp) => !linkedIds.has(h.id));
     setAvailable(unlinked);
     setLoading(false);
