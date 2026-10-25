@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Car, ClipboardList, QrCode, Plus, Trash2, ClipboardCheck, User, Home, Save, Users, Copy, Package, Wallet, Sparkles, AlertTriangle , Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -115,6 +115,9 @@ const ResidentPortal = () => {
       : item
   );
 
+  // Track if we've done the initial load to avoid full-screen spinner on revisits
+  const initialLoadDone = useRef(false);
+
   const loadProfileAndChildren = useCallback(async () => {
     if (!user) return;
     const { data: prof } = await supabase
@@ -142,13 +145,15 @@ const ResidentPortal = () => {
 
   useEffect(() => {
     const loadGuestPasses = async () => {
-      setLoading(true);
+      const shouldShowSpinner = !initialLoadDone.current;
+      if (shouldShowSpinner) setLoading(true);
       const { data, error } = await supabase.functions.invoke("resident-guest-passes", { body: { action: "list" } });
-      setLoading(false);
+      if (shouldShowSpinner) setLoading(false);
       if (error || data?.error) {
         toast({ title: "Could not load guest passes", description: error?.message ?? data?.error ?? "Please try again.", variant: "destructive" });
         return;
       }
+      initialLoadDone.current = true;
       setResident(data.resident as ResidentSummary);
       setGuestPasses((data.passes ?? []) as GuestPass[]);
       setVisitLogs((data.visit_logs ?? []) as VisitLog[]);
@@ -157,7 +162,7 @@ const ResidentPortal = () => {
       setActiveFlatId((prev) => prev || fl.find((f) => f.is_primary)?.id || fl[0]?.id || "");
       if (data.profile) setProfileForm({ display_name: data.profile.display_name ?? "", phone: data.profile.phone ?? "" });
     };
-    if (user) {
+    if (user && !initialLoadDone.current) {
       void loadGuestPasses();
       void loadProfileAndChildren();
     }
@@ -352,7 +357,7 @@ const ResidentPortal = () => {
     await loadChangeRequests();
   };
 
-  if (loading) {
+  if (loading && flats.length === 0 && !resident) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
