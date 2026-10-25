@@ -594,17 +594,21 @@ const AdminPanel = () => {
         <>
           <BulkResidentUpload />
           <RegistrationRequests />
+          <UserRegistry />
         </>
       )}
       {activeView === "guards" && <GuardRegistry />}
       {activeView === "device-pins" && <DevicePinMapping />}
-      {activeView === "staff" && <SocietyStaffManager />}
-      {activeView === "staff-logs" && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Staff Attendance</h2>
-      <StaffAttendanceLog filterCategory="all" showSummary={true} />
-        </div>
-)}
+      {activeView === "staff" && (
+        <>
+          <SocietyStaffManager />
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">Staff Attendance</h2>
+            <StaffAttendanceLog filterCategory="all" showSummary={true} />
+          </div>
+        </>
+      )}
+
       {activeView === "amenity-management" && (
         <>
           <AmenitiesSetup />
