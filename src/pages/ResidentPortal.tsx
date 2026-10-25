@@ -48,14 +48,11 @@ const PRIMARY_NAV: NavItem[] = [
   { id: "home", title: "Home", icon: Home },
   { id: "guest", title: "Guest Pass", icon: QrCode },
   { id: "vehicles", title: "My Vehicles", icon: Car },
-  { id: "requests", title: "My Requests", icon: ClipboardCheck },
-  { id: "history", title: "Visit History", icon: ClipboardList },
   { id: "dues", title: "My Dues", icon: Wallet },
   { id: "amenities", title: "Amenities", icon: Sparkles },
   { id: "ev", title: "EV Charging", icon: Zap },
   { id: "profile", title: "My Profile", icon: User },
   { id: "helps", title: "House Helps", icon: Users },
-  { id: "help-attendance", title: "Help Attendance", icon: ClipboardList },
   { id: "deliveries", title: "Deliveries", icon: Package },
 ];
 
@@ -769,21 +766,27 @@ const ResidentPortal = () => {
         />
       )}
       {activeView === "guest" && renderGuest()}
-      {activeView === "vehicles" && renderVehicles()}
-      {activeView === "requests" && !isChild && renderRequests()}
-      {activeView === "history" && renderHistory()}
+      {activeView === "vehicles" && (
+        <>
+          {renderVehicles()}
+          {!isChild && renderRequests()}
+          {renderHistory()}
+        </>
+      )}
       {activeView === "ev" && <EvChargingResident />}
 
       {activeView === "profile" && renderProfile()}
-      {activeView === "helps" && <HouseHelpsManager residentFlats={flats} />}
+      {activeView === "helps" && (
+        <>
+          <HouseHelpsManager residentFlats={flats} />
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">House Help Attendance</h2>
+            <StaffAttendanceLog filterCategory="house_help" showSummary={true} />
+          </div>
+        </>
+      )}
       {activeView === "dues" && <MyDues residentFlats={flats} formatFlat={formatFlat} />}
       {activeView === "amenities" && <AmenityBooking residentFlats={flats} />}
-      {activeView === "help-attendance" && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">House Help Attendance</h2>
-          <StaffAttendanceLog filterCategory="house_help" showSummary={true} />
-        </div>
-      )}
       {activeView === "deliveries" && (
       <ResidentDeliveryApprovals onPendingCountChange={setPendingDeliveries} />
       )}
