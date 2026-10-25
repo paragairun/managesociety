@@ -44,21 +44,11 @@ type ResidentOption = { user_id: string; display_name: string; flats: { wing: st
 const NAV: NavItem[] = [
   { id: "home", title: "Home", icon: Home },
   { id: "stats", title: "Statistics", icon: BarChart3 },
-  { id: "register", title: "Register Vehicle", icon: Plus },
-  { id: "bulk-vehicles", title: "Bulk Vehicle Upload", icon: Upload },
-  { id: "bulk-residents", title: "Bulk Resident Upload", icon: UserPlus },
-  { id: "reg-requests", title: "User Registration Requests", icon: ClipboardCheck },
-  { id: "vehicle-requests", title: "Vehicle Change Requests", icon: FileSpreadsheet },
-  { id: "access-logs", title: "Access Logs", icon: ClipboardList },
-  { id: "users", title: "User Registry", icon: Users },
-  { id: "registry", title: "Vehicle Registry", icon: Car },
-  { id: "visitor-qr", title: "Visitor Form QR", icon: LinkIcon },
-  { id: "barriers", title: "Boom Barriers", icon: Radio },
+  { id: "vehicle-management", title: "Vehicle Management", icon: Car },
+  { id: "users", title: "Users", icon: Users },
   { id: "staff", title: "Staff & House Helps", icon: Users },
-  { id: "staff-logs", title: "Staff Attendance", icon: ClipboardList },
-  { id: "billing-setup", title: "Maintenance Billing", icon: Wallet },
-  { id: "amenities-setup", title: "Amenities Setup", icon: Sparkles },
-  { id: "amenities-bookings", title: "Amenity Bookings", icon: Calendar },
+  { id: "amenity-management", title: "Amenity Management", icon: Sparkles },
+  { id: "accounts-maintenance", title: "Accounts and Maintenance", icon: Wallet },
   { id: "ev-charging", title: "EV Charging", icon: Zap },
   { id: "profile", title: "My Profile", icon: User },
 ];
@@ -589,18 +579,25 @@ const AdminPanel = () => {
         <AdminHome societyName={societyName ?? ""} stats={stats} recentEntries={recentEntries} onNavigate={setActiveView} />
       )}
       {activeView === "stats" && renderStats()}
-      {activeView === "register" && renderRegister()}
-      {activeView === "registry" && renderRegistry()}
-      {activeView === "bulk-vehicles" && <CsvUpload onComplete={() => { void fetchAdminData(false); }} />}
-      {activeView === "bulk-residents" && <BulkResidentUpload />}
-      {activeView === "reg-requests" && <RegistrationRequests />}
-      {activeView === "vehicle-requests" && <VehicleChangeRequestsAdmin onChanged={() => { void fetchAdminData(false); }} />}
-      {activeView === "access-logs" && <AccessLogsViewer />}
-      {activeView === "users" && <UserRegistry />}
+      {activeView === "vehicle-management" && (
+        <>
+          {renderRegister()}
+          {renderRegistry()}
+          <CsvUpload onComplete={() => { void fetchAdminData(false); }} />
+          <VehicleChangeRequestsAdmin onChanged={() => { void fetchAdminData(false); }} />
+          <AccessLogsViewer />
+          {renderVisitorQr()}
+          <BarrierDevicesAdmin />
+        </>
+      )}
+      {activeView === "users" && (
+        <>
+          <BulkResidentUpload />
+          <RegistrationRequests />
+        </>
+      )}
       {activeView === "guards" && <GuardRegistry />}
       {activeView === "device-pins" && <DevicePinMapping />}
-      {activeView === "visitor-qr" && renderVisitorQr()}
-      {activeView === "barriers" && <BarrierDevicesAdmin />}
       {activeView === "staff" && <SocietyStaffManager />}
       {activeView === "staff-logs" && (
         <div className="space-y-4">
@@ -608,9 +605,13 @@ const AdminPanel = () => {
       <StaffAttendanceLog filterCategory="all" showSummary={true} />
         </div>
 )}
-      {activeView === "billing-setup" && <MaintenanceBillingSetup />}
-      {activeView === "amenities-setup" && <AmenitiesSetup />}
-      {activeView === "amenities-bookings" && <AmenityBookingsAdmin />}
+      {activeView === "amenity-management" && (
+        <>
+          <AmenitiesSetup />
+          <AmenityBookingsAdmin />
+        </>
+      )}
+      {activeView === "accounts-maintenance" && <MaintenanceBillingSetup />}
       {activeView === "ev-charging" && <EvChargingAdmin />}
 
       {activeView === "profile" && <AdminProfile />}

@@ -24,14 +24,14 @@ interface AdminHomeProps {
 const money = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
 const TILES = [
-  { id: "register", title: "Register Vehicle", icon: Plus, tint: "bg-primary/10 text-primary" },
-  { id: "registry", title: "Vehicle Registry", icon: Car, tint: "bg-accent/10 text-accent" },
+  { id: "vehicle-management", title: "Register Vehicle", icon: Plus, tint: "bg-primary/10 text-primary" },
+  { id: "vehicle-management", title: "Vehicle Registry", icon: Car, tint: "bg-accent/10 text-accent" },
   { id: "users", title: "User Registry", icon: Users, tint: "bg-primary/10 text-primary" },
-  { id: "vehicle-requests", title: "Vehicle Requests", icon: FileSpreadsheet, tint: "bg-warning/10 text-warning" },
+  { id: "vehicle-management", title: "Vehicle Requests", icon: FileSpreadsheet, tint: "bg-warning/10 text-warning" },
   { id: "staff", title: "Staff", icon: Users, tint: "bg-accent/10 text-accent" },
   { id: "guards", title: "Guard Registry", icon: Shield, tint: "bg-accent/10 text-accent" },
   { id: "device-pins", title: "Fingerprint IDs", icon: Fingerprint, tint: "bg-accent/10 text-accent" },
-  { id: "barriers", title: "Boom Barriers", icon: Radio, tint: "bg-success/10 text-success" },
+  { id: "vehicle-management", title: "Boom Barriers", icon: Radio, tint: "bg-success/10 text-success" },
 ];
 
 const AdminHome = ({ societyName, stats, recentEntries, onNavigate }: AdminHomeProps) => {
@@ -101,7 +101,7 @@ const AdminHome = ({ societyName, stats, recentEntries, onNavigate }: AdminHomeP
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
           {TILES.map((tile) => {
             const Icon = tile.icon;
-            const badge = tile.id === "vehicle-requests" && stats.pending_requests > 0 ? stats.pending_requests : null;
+            const badge = tile.id === "vehicle-management" && stats.pending_requests > 0 ? stats.pending_requests : null;
             return (
               <button
                 key={tile.id}
@@ -123,7 +123,7 @@ const AdminHome = ({ societyName, stats, recentEntries, onNavigate }: AdminHomeP
 
           {/* Amenities -- now live: jump straight to bookings needing review */}
           <button
-            onClick={() => onNavigate("amenities-bookings")}
+            onClick={() => onNavigate("amenity-management")}
             className="flex flex-col items-center gap-2 p-3 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors relative touch-target"
           >
             {pendingAmenities > 0 && (
