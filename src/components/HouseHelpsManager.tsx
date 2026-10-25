@@ -97,84 +97,80 @@ const HouseHelpsManager = ({ residentFlats }: { residentFlats: ResidentFlat[] })
         ) : (
           <>
             {linked.length > 0 && (
-              <>
-                <div className="space-y-2 mb-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Linked to your flats</h3>
-                  {linked.map((h) => (
-                    <div key={h.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/30">
-                      <div className="flex items-center gap-3">
-                        {h.photo_base64 ? (
-                          <img src={h.photo_base64} alt={h.name} className="h-10 w-10 rounded-full object-cover" />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
-                            {h.name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-medium text-sm">{h.name}</p>
-                          <p className="text-xs text-muted-foreground">{h.help_type} • {h.flats.map((f) => formatFlat(f.wing, f.flat_number)).join(", ")}</p>
+              <div className="space-y-2 mb-4">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Linked to your flats</h3>
+                {linked.map((h) => (
+                  <div key={h.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/30">
+                    <div className="flex items-center gap-3">
+                      {h.photo_base64 ? (
+                        <img src={h.photo_base64} alt={h.name} className="h-10 w-10 rounded-full object-cover" />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+                          {h.name.charAt(0).toUpperCase()}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setShowIdCard(h)} title="View ID Card"><IdCard className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => void removeHelp(h)} title="Unlink"><Trash2 className="h-4 w-4" /></Button>
+                      )}
+                      <div>
+                        <p className="font-medium text-sm">{h.name}</p>
+                        <p className="text-xs text-muted-foreground">{h.help_type} • {h.flats.map((f) => formatFlat(f.wing, f.flat_number)).join(", ")}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
-
-                {available.length > 0 && (
-                  <>
-                    <div className="mb-4">
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Available house helps</h3>
-                      <p className="text-xs text-muted-foreground mb-2">Select a house help registered by the society admin and link it to your flat:</p>
-                      {available.map((h) => (
-                        <div key={h.id} className="flex items-center justify-between p-2 rounded-lg border border-border bg-secondary/20">
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
-                              {h.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-medium text-sm text-foreground">{h.name}</p>
-                              <p className="text-xs text-muted-foreground">{h.help_type}{h.phone ? ` • ${h.phone}` : ""}</p>
-                            </div>
-                          </div>
-                          <Button size="sm" variant="outline" onClick={() => setLinkingFor(h)} className="gap-1">
-                            <Link className="h-3 w-3" /> Link to my flat
-                          </Button>
-                        </div>
-                      ))}
+                    <div className="flex items-center gap-1">
+                      <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setShowIdCard(h)} title="View ID Card"><IdCard className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => void removeHelp(h)} title="Unlink"><Trash2 className="h-4 w-4" /></Button>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
-                    {linkingFor && (
-                      <Dialog open={!!linkingFor} onOpenChange={(o) => !o && setLinkingFor(null)}>
-                        <DialogContent>
-                          <DialogHeader><DialogTitle>Link "{linkingFor.name}"</DialogTitle></DialogHeader>
-                          <div className="space-y-3">
-                            <div className="space-y-1">
-                              <Label>Works for flat *</Label>
-                              <Select value={selectedFlatId} onValueChange={setSelectedFlatId}>
-                                <SelectTrigger><SelectValue placeholder="Select flat..." /></SelectTrigger>
-                                <SelectContent>
-                                  {residentFlats.map((f) => (
-                                    <SelectItem key={f.id} value={f.id}>{formatFlat(f.wing, f.flat_number)}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <Button variant="outline" onClick={() => setLinkingFor(null)}>Cancel</Button>
-                            <Button onClick={() => void handleLink()} disabled={!selectedFlatId}>
-                              Link
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    )}
-                  </>
+            {available.length > 0 && (
+              <div className="mb-4">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Available house helps</h3>
+                <p className="text-xs text-muted-foreground mb-2">Select a house help registered by the society admin and link it to your flat:</p>
+                {available.map((h) => (
+                  <div key={h.id} className="flex items-center justify-between p-2 rounded-lg border border-border bg-secondary/20">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
+                        {h.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm text-foreground">{h.name}</p>
+                        <p className="text-xs text-muted-foreground">{h.help_type}{h.phone ? ` • ${h.phone}` : ""}</p>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => setLinkingFor(h)} className="gap-1">
+                      <Link className="h-3 w-3" /> Link to my flat
+                    </Button>
+                  </div>
+                ))}
+
+                {linkingFor && (
+                  <Dialog open={!!linkingFor} onOpenChange={(o) => !o && setLinkingFor(null)}>
+                    <DialogContent>
+                      <DialogHeader><DialogTitle>Link "{linkingFor.name}"</DialogTitle></DialogHeader>
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <Label>Works for flat *</Label>
+                          <Select value={selectedFlatId} onValueChange={setSelectedFlatId}>
+                            <SelectTrigger><SelectValue placeholder="Select flat..." /></SelectTrigger>
+                            <SelectContent>
+                              {residentFlats.map((f) => (
+                                <SelectItem key={f.id} value={f.id}>{formatFlat(f.wing, f.flat_number)}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setLinkingFor(null)}>Cancel</Button>
+                        <Button onClick={() => void handleLink()} disabled={!selectedFlatId}>
+                          Link
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 )}
-              </>
+              </div>
             )}
           </>
         )}
