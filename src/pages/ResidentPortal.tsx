@@ -47,22 +47,22 @@ const emptyChildForm = { email: "", display_name: "", child_type: "family" as "f
 const PRIMARY_NAV: NavItem[] = [
   { id: "home", title: "Home", icon: Home },
   { id: "guest", title: "Guest Pass", icon: QrCode },
-  { id: "vehicles", title: "My Vehicles", icon: Car },
+  { id: "deliveries", title: "Deliveries", icon: Package },
   { id: "dues", title: "My Dues", icon: Wallet },
   { id: "amenities", title: "Amenities", icon: Sparkles },
+  { id: "vehicles", title: "My Vehicles", icon: Car },
   { id: "ev", title: "EV Charging", icon: Zap },
-  { id: "profile", title: "My Profile", icon: User },
   { id: "helps", title: "House Helps", icon: Users },
-  { id: "deliveries", title: "Deliveries", icon: Package },
+  { id: "profile", title: "My Profile", icon: User },
 ];
 
 const CHILD_NAV: NavItem[] = [
   { id: "home", title: "Home", icon: Home },
   { id: "guest", title: "Guest Pass", icon: QrCode },
-  { id: "vehicles", title: "Flat Vehicles", icon: Car },
-  { id: "history", title: "Visit History", icon: ClipboardList },
+  { id: "deliveries", title: "Deliveries", icon: Package },
   { id: "dues", title: "My Dues", icon: Wallet },
   { id: "amenities", title: "Amenities", icon: Sparkles },
+  { id: "vehicles", title: "Flat Vehicles", icon: Car },
   { id: "ev", title: "EV Charging", icon: Zap },
   { id: "profile", title: "My Profile", icon: User },
 ];
@@ -766,6 +766,11 @@ const ResidentPortal = () => {
         />
       )}
       {activeView === "guest" && renderGuest()}
+      {activeView === "deliveries" && (
+      <ResidentDeliveryApprovals onPendingCountChange={setPendingDeliveries} />
+      )}
+      {activeView === "dues" && <MyDues residentFlats={flats} formatFlat={formatFlat} />}
+      {activeView === "amenities" && <AmenityBooking residentFlats={flats} />}
       {activeView === "vehicles" && (
         <>
           {renderVehicles()}
@@ -775,7 +780,6 @@ const ResidentPortal = () => {
       )}
       {activeView === "ev" && <EvChargingResident />}
 
-      {activeView === "profile" && renderProfile()}
       {activeView === "helps" && (
         <>
           <HouseHelpsManager residentFlats={flats} />
@@ -785,11 +789,7 @@ const ResidentPortal = () => {
           </div>
         </>
       )}
-      {activeView === "dues" && <MyDues residentFlats={flats} formatFlat={formatFlat} />}
-      {activeView === "amenities" && <AmenityBooking residentFlats={flats} />}
-      {activeView === "deliveries" && (
-      <ResidentDeliveryApprovals onPendingCountChange={setPendingDeliveries} />
-      )}
+      {activeView === "profile" && renderProfile()}
       <AlertDialog open={!!removeTarget} onOpenChange={(o) => !o && setRemoveTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
