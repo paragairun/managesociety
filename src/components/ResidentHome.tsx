@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   QrCode, Car, Wallet, Users, Package, ClipboardList,
-  Sparkles, ArrowRight, LogIn, LogOut,
+  Sparkles, ArrowRight, LogIn, LogOut, Zap,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,7 @@ const TILES = [
   { id: "vehicles", title: "My Vehicles", icon: Car, tint: "bg-accent/10 text-accent" },
   { id: "dues", title: "My Dues", icon: Wallet, tint: "bg-warning/10 text-warning" },
   { id: "deliveries", title: "Deliveries", icon: Package, tint: "bg-success/10 text-success" },
+  { id: "ev", title: "EV Charging", icon: Zap, tint: "bg-primary/10 text-primary" },
   { id: "helps", title: "House Helps", icon: Users, tint: "bg-primary/10 text-primary" },
   { id: "history", title: "Visit History", icon: ClipboardList, tint: "bg-accent/10 text-accent" },
 ];
