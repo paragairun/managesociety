@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Shield, ScanLine, ClipboardList, Building2, QrCode, Users, ArrowRight,
   Car, Package, Wallet, Sparkles, IdCard, FileText, Activity, Radio,
@@ -623,8 +623,34 @@ const PhoneDemo = () => {
   );
 };
 
-const Index = () => (
-  <div className="min-h-screen bg-background">
+const Index = () => {
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Detect password recovery redirect from auth hash
+    const hash = window.location.hash;
+    if (hash.includes("type=recovery")) {
+      navigate("/reset-password", { replace: true });
+    }
+    setIsLoading(false);
+  }, [navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="w-full max-w-sm">
+          <CardContent className="p-8 text-center space-y-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+            <p className="text-muted-foreground text-sm">Checking reset link...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+      <div className="min-h-screen bg-background">
     {/* Top bar */}
     <header className="border-b border-border">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -818,5 +844,7 @@ const Index = () => (
     </footer>
   </div>
 );
+
+};
 
 export default Index;
