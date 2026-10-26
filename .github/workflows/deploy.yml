@@ -41,6 +41,37 @@ jobs:
       # Each value is therefore resolved explicitly: the repository
       # variable when it has one, the committed .env entry otherwise,
       # and a named failure if neither does.
+      # vite build does not type-check. A component referencing an
+      # identifier it never imported therefore compiles cleanly, ships,
+      # and throws ReferenceError the moment it renders — a blank page
+      # from a deploy that reported success. That is exactly how
+      # Index.tsx went out with <Loader2 /> and no import, and because
+      # that element sits in the isLoading branch it was the first thing
+      # rendered, so every page of the site was blank.
+      #
+      # A full typecheck cannot gate this repo yet: tsconfig.app.json
+      # currently reports 44 pre-existing errors, most of them from a
+      # stale src/integrations/supabase/types.ts. So this gates on the
+      # single class that blanks the page — a name that does not exist —
+      # and lets the rest through until those are cleared.
+      #
+      # Note the explicit -p. Plain `tsc --noEmit` is a no-op in this
+      # repo: tsconfig.json carries "files": [] with project
+      # references, so it checks zero files and always exits 0.
+      - name: Guard against undefined identifiers
+        run: |
+          set -uo pipefail
+          out="$(npx tsc -p tsconfig.app.json --noEmit 2>&1 || true)"
+          undefined_names="$(printf '%s\n' "$out" | grep -E 'error TS(2304|2552):' || true)"
+          if [ -n "$undefined_names" ]; then
+            printf '%s\n' "$undefined_names" | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            echo "These names are not defined. In a value position one throws ReferenceError the moment it renders, so the build succeeds and the page comes up blank; in a type position it means a missing type import. Fix either before deploying."
+            exit 1
+          fi
+          echo "No undefined identifiers."
+
       - name: Resolve Supabase build variables
         env:
           VAR_PROJECT_ID:      ${{ vars.VITE_SUPABASE_PROJECT_ID }}
