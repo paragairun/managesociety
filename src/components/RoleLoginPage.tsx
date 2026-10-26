@@ -66,21 +66,16 @@ const RoleLoginPage = ({ roleName, roleKey, icon: Icon, accentClass, dashboardPa
   const { societySlug: urlSlug } = useParams<{ societySlug?: string }>();
   const { toast } = useToast();
 
-  // Must be accessed via /:societySlug/role — bare /admin, /guard, /resident are blocked
-  if (!urlSlug) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 text-center">
-        <div className="space-y-3 max-w-sm">
-          <p className="text-2xl font-bold text-destructive">Access Denied</p>
-          <p className="text-muted-foreground text-sm">
-            Please use your society's unique login URL to sign in.
-            Contact your society admin for the correct link.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
+  // A bare /admin, /guard or /resident is now the normal way in. The
+  // society used to be chosen from a public dropdown before signing in,
+  // which meant publishing every society on the platform to anyone who
+  // opened the page. Nobody needs to choose: profiles.user_id is UNIQUE,
+  // so a user belongs to exactly one society, and AuthContext reads it
+  // from their own profile the moment they authenticate.
+  //
+  // The /:societySlug/role URLs keep working for bookmarks and for links
+  // a committee has already circulated; when a slug IS present it is
+  // checked against the user's own society below.
   const resolvedDashboardPath = societySlug ? `/${societySlug}/${roleKey}/dashboard` : dashboardPath;
 
   // Right after a successful sign-in, `user` becomes truthy before `roles`
@@ -115,6 +110,28 @@ const RoleLoginPage = ({ roleName, roleKey, icon: Icon, accentClass, dashboardPa
             <p className="text-muted-foreground text-sm">
               This account does not belong to this society.
               Please use your society's correct login URL.
+            </p>
+            <button
+              className="text-sm text-primary underline"
+              onClick={() => void signOut()}
+            >Sign out</button>
+          </div>
+        </div>
+      );
+    }
+
+    // Signed in, right role, but their profile carries no society. The
+    // old flow sent them to a slug-less dashboard, which now renders
+    // empty anyway because every table is scoped by society_id. Say so
+    // instead of showing them a blank screen they cannot explain.
+    if (!societySlug) {
+      return (
+        <div className="min-h-screen flex items-center justify-center p-6 text-center">
+          <div className="space-y-3 max-w-sm">
+            <p className="text-2xl font-bold text-destructive">No Society Linked</p>
+            <p className="text-muted-foreground text-sm">
+              This account is not linked to any society yet. Ask your
+              society admin to finish setting it up.
             </p>
             <button
               className="text-sm text-primary underline"
@@ -257,7 +274,14 @@ const RoleLoginPage = ({ roleName, roleKey, icon: Icon, accentClass, dashboardPa
               </Button>
               <p className="text-center text-sm text-muted-foreground">
                 Don't have access?{" "}
-                <Link to={`/register?role=${roleKey}`} className="text-primary hover:underline">Register here</Link>
+                {/* Carry the society through when the visitor arrived on a
+                    society URL. From a bare /admin there is no society to
+                    carry, and the registration page will say so rather than
+                    offering a list of every society on the platform. */}
+                <Link
+                  to={urlSlug ? `/${urlSlug}/register?role=${roleKey}` : `/register?role=${roleKey}`}
+                  className="text-primary hover:underline"
+                >Register here</Link>
               </p>
             </form>
           )}

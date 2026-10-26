@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams, useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { UserPlus, CheckCircle } from "lucide-react";
 import FlatPicker from "@/components/FlatPicker";
+import { resolveSociety, type PublicSociety } from "@/lib/societyLookup";
 
 const ROLE_LABELS: Record<string, string> = {
   guard: "Security Guard",
@@ -26,11 +27,6 @@ const ROLE_LABELS: Record<string, string> = {
  */
 const COMMITTEE_ROLES = ["admin", "manager"] as const;
 
-interface SocietyOption {
-  id: string;
-  name: string;
-}
-
 const Register = () => {
   const [searchParams] = useSearchParams();
   const roleFromUrl = searchParams.get("role") || "";
@@ -42,7 +38,12 @@ const Register = () => {
   const [chosenRole, setChosenRole] = useState<string>(entryRole);
   const validRole = isCommitteePage ? chosenRole : entryRole;
 
-  const [societies, setSocieties] = useState<SocietyOption[]>([]);
+  // The society comes from the link the applicant followed, never
+  // from a list. "looking" guards the first paint so the page does
+  // not flash "no link" before the lookup returns.
+  const { societySlug } = useParams<{ societySlug?: string }>();
+  const [society, setSociety] = useState<PublicSociety | null>(null);
+  const [looking, setLooking] = useState(true);
   const [form, setForm] = useState({
     email: "",
     display_name: "",
@@ -57,13 +58,17 @@ const Register = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    void supabase
-      .from("societies")
-      .select("id, name")
-      .eq("status", "active")
-      .order("name")
-      .then(({ data }) => setSocieties((data ?? []) as SocietyOption[]));
-  }, []);
+    let cancelled = false;
+    void resolveSociety({ slug: societySlug }).then((found) => {
+      if (cancelled) return;
+      setSociety(found);
+      setLooking(false);
+      // Keep the submitted payload driven by the resolved society, so
+      // the id can never disagree with the name on screen.
+      setForm((p) => ({ ...p, society_id: found?.id ?? "" }));
+    });
+    return () => { cancelled = true; };
+  }, [societySlug]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,8 +157,34 @@ const Register = () => {
               You will receive access once approved.
             </p>
             <Button variant="outline" asChild className="mt-4">
-              <Link to={`/login/society?role=${validRole}`}>Back to Login</Link>
+              <Link to={`/${validRole}`}>Back to Login</Link>
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // No slug, or a slug that resolves to nothing. There is deliberately
+  // no list to fall back to — offering one would put the whole customer
+  // roster back on a public page. An unknown slug and a missing one get
+  // the same wording, so this cannot be used to test whether a society
+  // exists.
+  if (!looking && !society) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 text-center">
+        <Card className="w-full max-w-sm">
+          <CardContent className="pt-8 pb-6 space-y-4">
+            <UserPlus className="h-12 w-12 text-muted-foreground mx-auto" />
+            <h2 className="text-xl font-bold text-foreground">Registration Link Needed</h2>
+            <p className="text-muted-foreground text-sm">
+              Please use the registration link your society gave you. Your
+              committee can share it from the admin panel.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Setting up a brand new society?{" "}
+              <Link to="/register-society" className="text-primary hover:underline">Register it here</Link>
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -190,20 +221,14 @@ const Register = () => {
             )}
 
             <div className="space-y-2">
-              <Label>Society *</Label>
-              <Select value={form.society_id} onValueChange={(v) => setForm((p) => ({ ...p, society_id: v }))}>
-                <SelectTrigger className="touch-target"><SelectValue placeholder="Select your society" /></SelectTrigger>
-                <SelectContent>
-                  {societies.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {societies.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  No societies available.{" "}
-                  <Link to="/register-society" className="text-primary hover:underline">Register a new society</Link>
-                </p>
+              <Label>Society</Label>
+              {looking ? (
+                <div className="h-10 rounded-md border border-border animate-pulse bg-secondary/40" />
+              ) : (
+                <div className="rounded-md border border-border bg-secondary/30 px-3 py-2">
+                  <p className="font-medium text-foreground">{society!.name}</p>
+                  <p className="text-xs text-muted-foreground">{society!.city}, {society!.state}</p>
+                </div>
               )}
             </div>
 

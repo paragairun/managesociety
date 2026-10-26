@@ -17,7 +17,6 @@ import AdminPanel from "./pages/AdminPanel";
 import Register from "./pages/Register";
 import SocietyRegister from "./pages/SocietyRegister";
 import LoginPortal from "./pages/LoginPortal";
-import SocietyPortal from "./pages/SocietyPortal";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import SuperAdminLogin from "./pages/SuperAdminLogin";
 import ResetPassword from "./pages/ResetPassword";
@@ -62,9 +61,12 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/register" element={<Register />} />
+            {/* Societies share this link with their members. The slug is
+                how an anonymous visitor names a society now that the
+                public list is gone. */}
+            <Route path="/:societySlug/register" element={<Register />} />
             <Route path="/register-society" element={<SocietyRegister />} />
             <Route path="/login" element={<LoginPortal />} />
-            <Route path="/login/society" element={<SocietyPortal />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/article/digital-vs-paper-society-management" element={<Article />} />
 

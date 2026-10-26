@@ -50,7 +50,10 @@ const LoginPortal = () => {
               <Card
                 key={key}
                 className="cursor-pointer hover:border-primary/50 hover:shadow-md transition-all"
-                onClick={() => navigate(`/login/society?role=${key}`)}
+                // Straight to the role's login. The society is read from
+                // the user's own profile after they authenticate, so
+                // there is nothing to pick — and nothing to publish.
+                onClick={() => navigate(`/${key}`)}
               >
                 <CardContent className="p-4 flex items-center gap-4">
                   <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${tint}`}>
