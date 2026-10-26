@@ -6,6 +6,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Mirrors src/lib/app-url.ts, which is the single source for these in
+// the app. This function runs on Deno and cannot import from src/, so
+// the values are repeated here. Change them in both places.
+const APP_NAME = "ManageSociety";
+const APP_DOMAIN = "managesociety.in";
+const APP_URL = `https://${APP_DOMAIN}`;
+
+// The sender domain must be VERIFIED IN RESEND or the send fails with
+// 403 and no registration notification goes out. Resend rejects an
+// unverified from-address outright rather than falling back, and the
+// only sign of it is the error logged below. If managesociety.in is
+// not yet verified there, set SENDER_EMAIL back to the old verified
+// address until it is.
+const SENDER_EMAIL = `noreply@${APP_DOMAIN}`;
+
 // Shape of the payload a Supabase Database Webhook sends on INSERT.
 const WebhookPayloadSchema = z.object({
   type: z.literal("INSERT"),
@@ -105,7 +120,7 @@ Deno.serve(async (req) => {
     const emailHtml = `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
         <h2 style="color: #1a1a1a;">New Society Registration Request</h2>
-        <p><strong>${request.society_name}</strong> has requested to join VisitorPasses.</p>
+        <p><strong>${request.society_name}</strong> has requested to join ${APP_NAME}.</p>
         <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
           <tr><td style="padding: 6px 0; color: #666;">Admin name</td><td style="padding: 6px 0;">${request.admin_display_name}</td></tr>
           <tr><td style="padding: 6px 0; color: #666;">Admin email</td><td style="padding: 6px 0;">${request.admin_email}</td></tr>
@@ -113,7 +128,7 @@ Deno.serve(async (req) => {
           <tr><td style="padding: 6px 0; color: #666;">Address</td><td style="padding: 6px 0;">${request.address_line}, ${request.city}, ${request.state}</td></tr>
           <tr><td style="padding: 6px 0; color: #666;">Submitted</td><td style="padding: 6px 0;">${submittedDate}</td></tr>
         </table>
-        <a href="https://visitorpasses.in/super-admin" style="display: inline-block; background: #F5A028; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+        <a href="${APP_URL}/super-admin" style="display: inline-block; background: #F5A028; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">
           Review Request
         </a>
       </div>
@@ -126,7 +141,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "VisitorPasses <noreply@visitorpasses.in>",
+        from: `${APP_NAME} <${SENDER_EMAIL}>`,
         to: recipientEmails,
         subject: `New society registration: ${request.society_name}`,
         html: emailHtml,
