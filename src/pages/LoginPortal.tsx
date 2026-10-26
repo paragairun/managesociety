@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Building2, Shield, ScanLine, Users, ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { APP_NAME } from "@/lib/app-url";
 
 const ROLES = [
   { key: "admin", label: "Society Admin", icon: Shield, description: "Manage residents, vehicles, staff and billing", tint: "bg-warning/15 text-warning" },
@@ -26,7 +27,7 @@ const LoginPortal = () => {
             <div className="h-9 w-9 rounded-lg bg-primary/15 flex items-center justify-center">
               <Building2 className="h-5 w-5 text-primary" />
             </div>
-            <span className="font-bold text-foreground text-lg">VisitorPasses</span>
+            <span className="font-bold text-foreground text-lg">{APP_NAME}</span>
           </Link>
           <Button asChild variant="outline" size="sm">
             <Link to="/register-society">Register Society</Link>

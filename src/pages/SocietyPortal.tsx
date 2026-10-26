@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { APP_NAME, APP_DOMAIN } from "@/lib/app-url";
 
 interface Society {
   id: string;
@@ -72,7 +73,7 @@ const SocietyPortal = () => {
             <div className="h-9 w-9 rounded-lg bg-primary/15 flex items-center justify-center">
               <Building2 className="h-5 w-5 text-primary" />
             </div>
-            <span className="font-bold text-foreground text-lg">VisitorPasses</span>
+            <span className="font-bold text-foreground text-lg">{APP_NAME}</span>
           </Link>
           <Button asChild variant="outline" size="sm">
             <Link to="/register-society">Register Society</Link>
@@ -121,7 +122,7 @@ const SocietyPortal = () => {
             {society && (
               <p className="text-xs text-center text-muted-foreground">
                 You'll be taken to{" "}
-                <span className="font-mono text-foreground">visitorpasses.in/{society.slug}/{role}</span>
+                <span className="font-mono text-foreground">{APP_DOMAIN}/{society.slug}/{role}</span>
               </p>
             )}
           </CardContent>

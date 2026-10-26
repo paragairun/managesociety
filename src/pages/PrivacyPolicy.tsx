@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Building2 } from "lucide-react";
+import { APP_NAME, SUPPORT_EMAIL } from "@/lib/app-url";
 
 const LAST_UPDATED = "10 July 2026";
 
@@ -15,7 +16,7 @@ const PrivacyPolicy = () => (
     <header className="border-b border-border">
       <div className="max-w-3xl mx-auto px-4 h-16 flex items-center gap-2">
         <Building2 className="h-5 w-5 text-primary" />
-        <Link to="/" className="font-bold text-foreground">VisitorPasses</Link>
+        <Link to="/" className="font-bold text-foreground">{APP_NAME}</Link>
       </div>
     </header>
 
@@ -24,7 +25,7 @@ const PrivacyPolicy = () => (
       <p className="text-sm text-muted-foreground mb-10">Last updated: {LAST_UPDATED}</p>
 
       <p className="text-sm text-muted-foreground leading-relaxed mb-8">
-        VisitorPasses ("we", "our", "the app") provides digital visitor, vehicle, staff, delivery,
+        {APP_NAME} ("we", "our", "the app") provides digital visitor, vehicle, staff, delivery,
         maintenance billing, and amenity management for residential housing societies in India.
         This policy explains what information we collect through our website and mobile apps
         (resident and guard), why we collect it, and how it's handled.
@@ -86,7 +87,7 @@ const PrivacyPolicy = () => (
 
       <Section title="Children's Privacy">
         <p>
-          VisitorPasses is intended for use by adult residents, security staff, and society administrators.
+          {APP_NAME} is intended for use by adult residents, security staff, and society administrators.
           We do not knowingly collect information directly from children.
         </p>
       </Section>
@@ -101,7 +102,7 @@ const PrivacyPolicy = () => (
       <Section title="Contact Us">
         <p>
           For any questions about this policy or your data, contact us at{" "}
-          <a href="mailto:noreply@visitorpasses.in" className="text-primary hover:underline">noreply@visitorpasses.in</a>.
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">{SUPPORT_EMAIL}</a>.
         </p>
       </Section>
     </main>

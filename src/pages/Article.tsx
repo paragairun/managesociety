@@ -4,6 +4,7 @@ import {
   QrCode, Car, Users, Shield, Package, ScanLine, BarChart3,
   UserCheck, IndianRupee, CalendarDays,
 } from "lucide-react";
+import { APP_NAME, APP_DOMAIN } from "@/lib/app-url";
 
 const Article = () => (
   <div className="min-h-screen bg-background">
@@ -13,7 +14,7 @@ const Article = () => (
           <div className="h-9 w-9 rounded-lg bg-primary/15 flex items-center justify-center">
             <Building2 className="h-5 w-5 text-primary" />
           </div>
-          <span className="font-bold text-foreground text-lg">VisitorPasses</span>
+          <span className="font-bold text-foreground text-lg">{APP_NAME}</span>
         </Link>
         <Link to="/" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" /> Back to home
@@ -79,10 +80,10 @@ const Article = () => (
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
               <Building2 className="h-5 w-5 text-primary" />
             </div>
-            <h2 className="text-xl font-bold">Everything VisitorPasses Handles</h2>
+            <h2 className="text-xl font-bold">Everything {APP_NAME} Handles</h2>
           </div>
           <p className="text-muted-foreground leading-relaxed">
-            VisitorPasses is a complete digital operations platform for housing societies. It covers every
+            {APP_NAME} is a complete digital operations platform for housing societies. It covers every
             person, vehicle, payment, and space in your society — from the gate to the accounts to the
             swimming pool booking calendar. Here is a full picture.
           </p>
@@ -160,7 +161,7 @@ const Article = () => (
                 <tr className="bg-secondary/60">
                   <th className="text-left p-3 font-semibold text-foreground">Situation</th>
                   <th className="text-left p-3 font-semibold text-destructive">Manual</th>
-                  <th className="text-left p-3 font-semibold text-success">VisitorPasses</th>
+                  <th className="text-left p-3 font-semibold text-success">{APP_NAME}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -282,7 +283,7 @@ const Article = () => (
         <section className="space-y-4">
           <h2 className="text-xl font-bold">The Bigger Picture</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Every feature in VisitorPasses was built from a real friction point that a real housing society
+            Every feature in {APP_NAME} was built from a real friction point that a real housing society
             faces every day. The platform started at the gate because that is the most visible problem.
             It grew to cover deliveries, staff attendance, house help tracking, maintenance collection,
             and amenity bookings — because each of these is its own daily source of wasted time, missed
@@ -298,10 +299,10 @@ const Article = () => (
 
         {/* CTA */}
         <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 sm:p-8 space-y-4">
-          <h2 className="text-xl font-bold text-foreground">Get Your Society on VisitorPasses</h2>
+          <h2 className="text-xl font-bold text-foreground">Get Your Society on {APP_NAME}</h2>
           <p className="text-muted-foreground leading-relaxed">
             Free to use. No hardware. No app to install. Your society gets its own dedicated URL —
-            <span className="font-mono text-foreground text-sm"> visitorpasses.in/your-society-name</span> —
+            <span className="font-mono text-foreground text-sm"> {APP_DOMAIN}/your-society-name</span> —
             and a complete platform for everything that happens in your society, every day.
             Live in under 10 minutes.
           </p>
@@ -324,7 +325,7 @@ const Article = () => (
       </article>
 
       <div className="mt-16 pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
-        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} VisitorPasses · visitorpasses.in</p>
+        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} {APP_NAME} · {APP_DOMAIN}</p>
         <div className="flex gap-4 text-xs text-muted-foreground">
           <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
           <Link to="/register-society" className="hover:text-foreground transition-colors">Register Society</Link>

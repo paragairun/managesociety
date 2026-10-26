@@ -16,6 +16,7 @@ import SocietyStructureBuilder from "@/components/SocietyStructureBuilder";
 import {
   TowerStructure, emptyTower, normalizeStructure, toEditableState, NormalizedStructure,
 } from "@/lib/societyStructure";
+import { APP_DOMAIN, appUrl } from "@/lib/app-url";
 
 interface WingRange {
   wing: string;
@@ -282,12 +283,12 @@ const SuperAdminDashboard = () => {
                     )}
                     {s.slug && (
                       <a
-                        href={`https://visitorpasses.in/${s.slug}/admin`}
+                        href={appUrl(`/${s.slug}/admin`)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-0.5"
                       >
-                        visitorpasses.in/{s.slug}/admin <ExternalLink className="h-3 w-3" />
+                        {APP_DOMAIN}/{s.slug}/admin <ExternalLink className="h-3 w-3" />
                       </a>
                     )}
                   </div>
