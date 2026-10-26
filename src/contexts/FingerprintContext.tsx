@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getFingerprintDriver, type Candidate } from "@/lib/fingerprint";
 import { FingerprintListener, type ListenerStatus, type AttendanceEvent } from "@/lib/fingerprintListener";
 import { logStaffMovement } from "@/lib/staffAttendance";
-import { FingerprintContext } from "@/contexts/fingerprint-context-core";
+import { FingerprintContext, type LastScan } from "@/contexts/fingerprint-context-core";
 
 /**
  * Mounts the always-on fingerprint listener for signed-in guards.

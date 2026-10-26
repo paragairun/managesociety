@@ -1,7 +1,7 @@
 import { createContext } from "react";
 import type { ListenerStatus } from "@/lib/fingerprintListener";
 
-interface LastScan {
+export interface LastScan {
   name: string;
   role: string;
   action: "entry" | "exit";
