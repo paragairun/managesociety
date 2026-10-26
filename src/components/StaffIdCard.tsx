@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import QRCode from "qrcode";
 import { Download, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { APP_NAME, APP_DOMAIN } from "@/lib/app-url";
 
 interface StaffIdCardProps {
   qrCode: string;
@@ -45,7 +46,7 @@ const StaffIdCard = ({ qrCode, name, role, category, photoBase64, societyName, f
       ctx.font = `700 13px "Philosopher", serif`;
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
-      ctx.fillText((societyName ?? "VisitorPasses").toUpperCase(), 20, 16);
+      ctx.fillText((societyName ?? APP_NAME).toUpperCase(), 20, 16);
 
       // Category badge
       const badge = category === "society_staff" ? "SOCIETY STAFF" : "HOUSE HELP";
@@ -112,7 +113,7 @@ const StaffIdCard = ({ qrCode, name, role, category, photoBase64, societyName, f
       // Footer
       ctx.font = `400 10px "Montserrat", sans-serif`;
       ctx.fillStyle = DARK + "88";
-      ctx.fillText("visitorpasses.in", 20, CARD_H - 20);
+      ctx.fillText(APP_DOMAIN, 20, CARD_H - 20);
 
       // QR
       const qrCanvas = document.createElement("canvas");
