@@ -30,12 +30,51 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      # A repository variable that does not exist expands to an EMPTY
+      # STRING, not to nothing. Vite prefers a real environment variable
+      # over the .env file, so an empty VITE_SUPABASE_URL silently beats
+      # the committed value. The build still exits 0 and uploads a
+      # bundle whose createClient() throws "supabaseUrl is required."
+      # at module scope — before React mounts — so the site serves a
+      # blank page and the deploy looks green.
+      #
+      # Each value is therefore resolved explicitly: the repository
+      # variable when it has one, the committed .env entry otherwise,
+      # and a named failure if neither does.
+      - name: Resolve Supabase build variables
+        env:
+          VAR_PROJECT_ID:      ${{ vars.VITE_SUPABASE_PROJECT_ID }}
+          VAR_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VAR_URL:             ${{ vars.VITE_SUPABASE_URL }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in VITE_SUPABASE_PROJECT_ID VITE_SUPABASE_PUBLISHABLE_KEY VITE_SUPABASE_URL; do
+            var_ref="VAR_${name#VITE_SUPABASE_}"
+            value="${!var_ref:-}"
+            origin="repository variable"
+
+            if [ -z "$value" ] && [ -f .env ]; then
+              value="$(sed -n "s/^${name}=//p" .env | head -n1 | tr -d '\r' \
+                | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
+                      -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")"
+              origin=".env"
+            fi
+
+            if [ -z "$value" ]; then
+              echo "::error::${name} is empty in both the repository variables and .env. Building would ship a bundle that throws 'supabaseUrl is required.' and renders a blank page."
+              missing=1
+              continue
+            fi
+
+            # Only the source is logged, never the value.
+            echo "${name}=${value}" >> "$GITHUB_ENV"
+            echo "${name} resolved from ${origin}"
+          done
+          [ "$missing" -eq 0 ]
+
       - name: Build
         run: npm run build
-        env:
-          VITE_SUPABASE_PROJECT_ID: ${{ vars.VITE_SUPABASE_PROJECT_ID }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
 
       - name: Add SPA fallback (404.html)
         run: cp dist/index.html dist/404.html
