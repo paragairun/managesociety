@@ -1,9 +1,0 @@
-{
-	"appId": "in.managesociety.resident",
-	"appName": "ManageSociety Resident",
-	"webDir": "www",
-	"server": {
-		"url": "https://managesociety.in/login/society?role=resident",
-		"cleartext": false
-	}
-}
