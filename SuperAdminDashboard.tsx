@@ -8,12 +8,15 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import StatusBadge from "@/components/StatusBadge";
-import SocietyStructureBuilder, {
+import SocietyStructureBuilder from "@/components/SocietyStructureBuilder";
+import {
   TowerStructure, emptyTower, normalizeStructure, toEditableState, NormalizedStructure,
-} from "@/components/SocietyStructureBuilder";
+} from "@/lib/societyStructure";
+import { APP_DOMAIN, appUrl } from "@/lib/app-url";
 
 interface WingRange {
   wing: string;
@@ -65,7 +68,7 @@ const SuperAdminDashboard = () => {
     ]);
 
     // Join admin_email from approved registration requests by society name match
-    const approvedReqs = (reqs ?? []) as RegRow[];
+    const approvedReqs = (reqs ?? []) as unknown as RegRow[];
     const enrichedSocs = ((socs ?? []) as Omit<SocietyRow, "admin_email">[]).map((s) => {
       const req = approvedReqs.find(
         (r) => r.society_name.trim().toLowerCase() === s.name.trim().toLowerCase() && r.status === "approved"
@@ -144,7 +147,7 @@ const SuperAdminDashboard = () => {
       toast({ title: "Could not load structure", description: error.message, variant: "destructive" });
       return;
     }
-    const normalized = (data?.structure ?? { floor_wise: false, towers: [] }) as NormalizedStructure;
+    const normalized = (data?.structure ?? { floor_wise: false, towers: [] }) as unknown as NormalizedStructure;
     const { towers, floorWise, flatsPerFloor } = toEditableState(normalized);
     setEditingTowers(towers);
     setEditingFloorWise(floorWise);
@@ -161,7 +164,7 @@ const SuperAdminDashboard = () => {
     setStructureSaving(true);
     const { error } = await supabase
       .from("society_structure")
-      .upsert({ society_id: editingSociety.id, structure: result.structure, locked: true }, { onConflict: "society_id" });
+      .upsert({ society_id: editingSociety.id, structure: result.structure as unknown as Json, locked: true }, { onConflict: "society_id" });
     setStructureSaving(false);
     if (error) {
       toast({ title: "Could not save structure", description: error.message, variant: "destructive" });
@@ -280,12 +283,12 @@ const SuperAdminDashboard = () => {
                     )}
                     {s.slug && (
                       <a
-                        href={`https://visitorpasses.in/${s.slug}/admin`}
+                        href={appUrl(`/${s.slug}/admin`)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-0.5"
                       >
-                        visitorpasses.in/{s.slug}/admin <ExternalLink className="h-3 w-3" />
+                        {APP_DOMAIN}/{s.slug}/admin <ExternalLink className="h-3 w-3" />
                       </a>
                     )}
                   </div>
