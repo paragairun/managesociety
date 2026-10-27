@@ -62,12 +62,12 @@ jobs:
         run: |
           set -uo pipefail
           out="$(npx tsc -p tsconfig.app.json --noEmit 2>&1 || true)"
-          undefined_names="$(printf '%s\n' "$out" | grep -E 'error TS(2304|2552):' || true)"
+          undefined_names="$(printf '%s\n' "$out" | grep -E 'error TS(2304|2552|2305|2307):' || true)"
           if [ -n "$undefined_names" ]; then
             printf '%s\n' "$undefined_names" | while IFS= read -r line; do
               echo "::error::$line"
             done
-            echo "These names are not defined. In a value position one throws ReferenceError the moment it renders, so the build succeeds and the page comes up blank; in a type position it means a missing type import. Fix either before deploying."
+            echo "A name or module above does not resolve. TS2304/TS2552: the name is not defined, which throws ReferenceError at render and serves a blank page. TS2305: the module exists but does not export that name. TS2307: the module path is wrong. Fix before deploying."
             exit 1
           fi
           echo "No undefined identifiers."
