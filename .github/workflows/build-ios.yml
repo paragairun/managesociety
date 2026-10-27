@@ -85,29 +85,43 @@ jobs:
             npx cap sync ios
           fi
 
-      # App.xcworkspace is produced by CocoaPods, not by Capacitor.
-      # `cap add ios` tries to run pod install itself and only WARNS if
-      # it cannot, so a missing or failed CocoaPods leaves an
-      # App.xcodeproj with no workspace and the build fails later with
-      # "'ios/App/App.xcworkspace' does not exist" — which says nothing
-      # about the real cause. Done explicitly here so a pod failure
-      # fails this step, by name.
-      - name: Resolve CocoaPods
+      # Capacitor 8 ships TWO iOS templates — ios-pods-template and
+      # ios-spm-template — and scaffolded the Swift Package Manager one
+      # here. That variant has no Podfile and no standalone
+      # App.xcworkspace by design; dependencies resolve through
+      # App/CapApp-SPM/Package.swift and you build the .xcodeproj.
+      #
+      # The earlier CocoaPods step was answering a question this project
+      # does not ask. Confirmed by unpacking @capacitor/cli 8.4.1: only
+      # the SPM template contains ios/debug.xcconfig, which is what the
+      # failing run listed.
+      #
+      # Detected rather than assumed, so a future Capacitor flipping the
+      # default back to pods fails loudly here instead of three steps
+      # later with a missing file.
+      - name: Work out how dependencies are managed
+        id: iosdeps
         working-directory: ${{ matrix.app_dir }}
         run: |
           set -euo pipefail
-          if [ ! -f ios/App/Podfile ]; then
-            echo "::error::ios/App/Podfile is missing, so the previous step did not generate a complete iOS project."
-            ls -la ios 2>/dev/null || echo "(no ios directory at all)"
+          if [ -f ios/App/Podfile ]; then
+            echo "CocoaPods project detected."
+            if ! command -v pod >/dev/null 2>&1; then
+              sudo gem install cocoapods --no-document || brew install cocoapods
+            fi
+            pod --version
+            ( cd ios/App && pod install --repo-update )
+            echo "target_flag=-workspace" >> "$GITHUB_OUTPUT"
+            echo "target_path=ios/App/App.xcworkspace" >> "$GITHUB_OUTPUT"
+          elif [ -f ios/App/CapApp-SPM/Package.swift ]; then
+            echo "Swift Package Manager project detected; no pod install needed."
+            echo "target_flag=-project" >> "$GITHUB_OUTPUT"
+            echo "target_path=ios/App/App.xcodeproj" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Neither ios/App/Podfile nor ios/App/CapApp-SPM/Package.swift exists, so the generated project is neither a CocoaPods nor an SPM one. Capacitor's template has changed shape."
+            ls -la ios ios/App 2>/dev/null || true
             exit 1
           fi
-          if ! command -v pod >/dev/null 2>&1; then
-            echo "CocoaPods not on PATH; installing."
-            sudo gem install cocoapods --no-document || brew install cocoapods
-          fi
-          pod --version
-          cd ios/App
-          pod install --repo-update
 
       # Printed whether or not the build succeeds. The first failure
       # here was unreadable because nothing reported what the generated
@@ -116,13 +130,13 @@ jobs:
         if: always()
         working-directory: ${{ matrix.app_dir }}
         run: |
+          echo "--- ios ---"
+          ls -la ios || echo "(ios does not exist)"
           echo "--- ios/App ---"
           ls -la ios/App || echo "(ios/App does not exist)"
-          if [ -d ios/App/App.xcworkspace ]; then
+          if [ -d ios/App/App.xcodeproj ]; then
             echo "--- schemes ---"
-            xcodebuild -workspace ios/App/App.xcworkspace -list || true
-          else
-            echo "::error::ios/App/App.xcworkspace was not created. CocoaPods did not produce a workspace; see the Resolve CocoaPods step above."
+            xcodebuild -project ios/App/App.xcodeproj -list || true
           fi
 
       # Rewrites utm_source to ios_app. Run from the repo root, since
@@ -155,7 +169,7 @@ jobs:
         run: |
           set -euo pipefail
           xcodebuild \
-            -workspace ios/App/App.xcworkspace \
+            ${{ steps.iosdeps.outputs.target_flag }} ${{ steps.iosdeps.outputs.target_path }} \
             -scheme App \
             -configuration Debug \
             -sdk iphonesimulator \
@@ -254,7 +268,9 @@ jobs:
   #         TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
   #       run: |
   #         set -euo pipefail
-  #         xcodebuild -workspace ios/App/App.xcworkspace -scheme App \
+  #         # SPM project: -project, not -workspace. See the
+  #         # "Work out how dependencies are managed" step above.
+  #         xcodebuild -project ios/App/App.xcodeproj -scheme App \
   #           -configuration Release -sdk iphoneos -archivePath build/App.xcarchive \
   #           DEVELOPMENT_TEAM="$TEAM_ID" archive
   #         cat > /tmp/ExportOptions.plist <<PLIST
