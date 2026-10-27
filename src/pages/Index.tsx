@@ -771,7 +771,7 @@ const Index = () => {
         Choose your portal
       </h2>
       <div className="grid sm:grid-cols-3 gap-4">
-        <Link to="/login/society?role=admin" className="group">
+        <Link to="/admin" className="group">
           <Card className="h-full transition-all hover:border-warning/50 hover:shadow-lg hover:-translate-y-1">
             <CardContent className="p-6 text-center">
               <div className="mx-auto h-14 w-14 rounded-xl bg-warning/15 text-warning flex items-center justify-center mb-4">
@@ -782,7 +782,7 @@ const Index = () => {
             </CardContent>
           </Card>
         </Link>
-        <Link to="/login/society?role=guard" className="group">
+        <Link to="/guard" className="group">
           <Card className="h-full transition-all hover:border-primary/50 hover:shadow-lg hover:-translate-y-1">
             <CardContent className="p-6 text-center">
               <div className="mx-auto h-14 w-14 rounded-xl bg-primary/15 text-primary flex items-center justify-center mb-4">
@@ -793,7 +793,7 @@ const Index = () => {
             </CardContent>
           </Card>
         </Link>
-        <Link to="/login/society?role=resident" className="group">
+        <Link to="/resident" className="group">
           <Card className="h-full transition-all hover:border-success/50 hover:shadow-lg hover:-translate-y-1">
             <CardContent className="p-6 text-center">
               <div className="mx-auto h-14 w-14 rounded-xl bg-success/15 text-success flex items-center justify-center mb-4">

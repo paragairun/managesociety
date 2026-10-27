@@ -27,6 +27,7 @@ import AmenityBooking from "@/components/AmenityBooking";
 import StaffAttendanceLog from "@/components/StaffAttendanceLog";
 import ResidentDeliveryApprovals from "@/components/ResidentDeliveryApprovals";
 import EvChargingResident from "@/components/EvChargingResident";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 interface GuestPass {
   id: string; visitor_name: string; phone: string; vehicle_number: string;
@@ -104,6 +105,13 @@ const ResidentPortal = () => {
   const [pendingDeliveries, setPendingDeliveries] = useState(0);
   const { toast } = useToast();
   const { signOut, user, societyId, societyName, societySlug } = useAuth();
+
+  // Registers this device for push, but only inside the iOS or Android
+  // shell — in a browser tab the hook returns immediately. It was
+  // written months ago and never called from anywhere, so no device has
+  // ever registered a token and send-push-notification has had nothing
+  // to send to. This is the call that was missing.
+  usePushNotifications(user?.id);
   const navigate = useNavigate();
   const residentLoginPath = societySlug ? `/${societySlug}/resident` : "/resident";
   const { formatFlat } = useSocietyStructure(societyId);

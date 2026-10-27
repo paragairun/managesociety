@@ -1,0 +1,190 @@
+name: Build iOS Resident App
+
+# Builds the iOS resident app on a GitHub-hosted Mac, so no Mac of your
+# own is needed. Same shell idea as the Android apps: it loads the live
+# site, so ordinary web changes reach users with no rebuild. Rebuild
+# only when the native shell changes (icon, permissions, app name, the
+# URL it opens).
+#
+# WHAT THIS PRODUCES TODAY
+# An UNSIGNED simulator build (.app, zipped, under the run's Artifacts).
+# You can drag it onto an iOS Simulator on any Mac and use the app. It
+# will NOT install on a physical iPhone and cannot go to TestFlight or
+# the App Store — both need an Apple Developer Program membership
+# ($99/year), which is not set up yet.
+#
+# WHAT CHANGES WHEN YOU ENROL
+# The "Device / TestFlight build" job at the bottom is written and
+# commented out. Enrol, add the four repository secrets it lists, and
+# uncomment it. Nothing above needs to change.
+#
+# PUSH NOTIFICATIONS
+# Also gated on enrolment. Apple push needs an APNs key generated in the
+# Apple Developer portal and the Push Notifications capability on a real
+# App ID — neither exists without membership. The app code is ready
+# (usePushNotifications registers on both platforms); it simply will not
+# receive anything on iOS until that key exists.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile-resident/**'
+      - '.github/workflows/build-ios.yml'
+
+jobs:
+  build-simulator:
+    name: Unsigned simulator build
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: mobile-resident
+        run: npm install --no-audit --no-fund
+
+      # The ios/ directory is generated output, like android/ is for the
+      # Android build. It is not committed: it is ~60 Xcode files that
+      # Capacitor recreates deterministically, and a stale committed copy
+      # is worse than no copy. Regenerated here each run.
+      - name: Generate the iOS project
+        working-directory: mobile-resident
+        run: |
+          set -euo pipefail
+          if [ ! -d ios ]; then
+            npx cap add ios
+          else
+            npx cap sync ios
+          fi
+
+      # Rewrites utm_source so analytics can tell iPhone traffic from
+      # Android. Fails the build rather than shipping a wrong URL.
+      - name: Apply iOS-specific configuration
+        working-directory: mobile-resident
+        run: node scripts/configure-ios.mjs
+
+      - name: Show what will be built
+        working-directory: mobile-resident
+        run: |
+          echo "--- capacitor.config.json as the app will see it ---"
+          cat ios/App/App/capacitor.config.json
+          xcodebuild -workspace ios/App/App.xcworkspace -list
+
+      - name: Build for the simulator
+        working-directory: mobile-resident
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package the .app
+        working-directory: mobile-resident
+        run: |
+          set -euo pipefail
+          APP_PATH="$(find build/Build/Products -maxdepth 2 -name 'App.app' -type d | head -n 1)"
+          if [ -z "$APP_PATH" ]; then
+            echo "::error::No App.app was produced; the build step above did not fail but emitted nothing."
+            exit 1
+          fi
+          echo "Found $APP_PATH"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" ManageSocietyResident-simulator.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: managesociety-resident-ios-simulator
+          path: mobile-resident/ManageSocietyResident-simulator.zip
+          if-no-files-found: error
+
+  # ───────────────────────────────────────────────────────────────
+  # Device / TestFlight build — uncomment once enrolled in the
+  # Apple Developer Program.
+  #
+  # Repository secrets it needs (Settings -> Secrets and variables ->
+  # Actions). I can walk you through producing each one:
+  #
+  #   IOS_CERTIFICATE_P12      base64 of your Apple distribution
+  #                            certificate exported as .p12
+  #   IOS_CERTIFICATE_PASSWORD the password you set on that export
+  #   IOS_PROVISIONING_PROFILE base64 of the .mobileprovision for
+  #                            in.managesociety.resident
+  #   IOS_TEAM_ID              your 10-character Apple Team ID
+  #
+  # Add APP_STORE_CONNECT_* secrets as well if you want it to upload to
+  # TestFlight automatically rather than leaving the .ipa as an artifact.
+  # ───────────────────────────────────────────────────────────────
+  #
+  # build-device:
+  #   name: Signed device build
+  #   runs-on: macos-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 20
+  #
+  #     - name: Install dependencies
+  #       working-directory: mobile-resident
+  #       run: npm install --no-audit --no-fund
+  #
+  #     - name: Import signing certificate
+  #       env:
+  #         CERT: ${{ secrets.IOS_CERTIFICATE_P12 }}
+  #         CERT_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+  #         PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+  #       run: |
+  #         set -euo pipefail
+  #         echo "$CERT" | base64 --decode > /tmp/cert.p12
+  #         echo "$PROFILE" | base64 --decode > /tmp/profile.mobileprovision
+  #         security create-keychain -p runner build.keychain
+  #         security default-keychain -s build.keychain
+  #         security unlock-keychain -p runner build.keychain
+  #         security import /tmp/cert.p12 -k build.keychain -P "$CERT_PASSWORD" -T /usr/bin/codesign
+  #         security set-key-partition-list -S apple-tool:,apple: -s -k runner build.keychain
+  #         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+  #         cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+  #
+  #     - name: Generate the iOS project
+  #       working-directory: mobile-resident
+  #       run: npx cap add ios || npx cap sync ios
+  #
+  #     - name: Apply iOS-specific configuration
+  #       working-directory: mobile-resident
+  #       run: node scripts/configure-ios.mjs
+  #
+  #     - name: Archive and export
+  #       working-directory: mobile-resident
+  #       env:
+  #         TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+  #       run: |
+  #         set -euo pipefail
+  #         xcodebuild -workspace ios/App/App.xcworkspace -scheme App \
+  #           -configuration Release -sdk iphoneos -archivePath build/App.xcarchive \
+  #           DEVELOPMENT_TEAM="$TEAM_ID" archive
+  #         cat > /tmp/ExportOptions.plist <<PLIST
+  #         <?xml version="1.0" encoding="UTF-8"?>
+  #         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+  #         <plist version="1.0"><dict>
+  #           <key>method</key><string>app-store</string>
+  #           <key>teamID</key><string>${TEAM_ID}</string>
+  #         </dict></plist>
+  #         PLIST
+  #         xcodebuild -exportArchive -archivePath build/App.xcarchive \
+  #           -exportOptionsPlist /tmp/ExportOptions.plist -exportPath build/ipa
+  #
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         name: managesociety-resident-ios-ipa
+  #         path: mobile-resident/build/ipa/*.ipa
+  #         if-no-files-found: error
