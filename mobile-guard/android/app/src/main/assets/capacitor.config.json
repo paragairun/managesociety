@@ -1,9 +1,0 @@
-{
-	"appId": "in.managesociety.guard",
-	"appName": "ManageSociety Guard",
-	"webDir": "www",
-	"server": {
-		"url": "https://managesociety.in/login/society?role=guard",
-		"cleartext": false
-	}
-}
