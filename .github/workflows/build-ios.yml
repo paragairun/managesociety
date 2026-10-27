@@ -58,9 +58,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 22, not 20: @capacitor/cli 8.x refuses to run below Node 22
+      # ("The Capacitor CLI requires NodeJS >=22.0.0"). The Android
+      # workflows have no setup-node step at all and inherit the
+      # runner's Node, which is already above that — pinning 20 here was
+      # a downgrade below the floor, which is worse than not pinning.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install dependencies
         working-directory: ${{ matrix.app_dir }}
@@ -173,7 +178,7 @@ jobs:
   #     - uses: actions/checkout@v4
   #     - uses: actions/setup-node@v4
   #       with:
-  #         node-version: 20
+  #         node-version: 22
   #
   #     - name: Install dependencies
   #       working-directory: ${{ matrix.app_dir }}
