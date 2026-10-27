@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   can, capabilitiesOf, canOpenAdminPanel, isManagerOnly,
   SELF_SERVICE_ROLES, isSelfServiceRole, ROLE_LABEL, ROLE_BLURB, roleSatisfies,
-  COMMITTEE_CREATED_ROLES, isCommitteeCreatedRole,
+  rolesCreatableBy, canCreateRole,
   type AppRole, type Capability,
 } from "./permissions";
 
@@ -118,55 +118,69 @@ describe("isManagerOnly", () => {
   });
 });
 
-describe("self-service roles on the public register page", () => {
-  it("offers only the committee roles", () => {
-    expect([...SELF_SERVICE_ROLES].sort()).toEqual(["admin", "manager"]);
+describe("nobody registers themselves", () => {
+  it("offers no self-service role at all", () => {
+    expect(SELF_SERVICE_ROLES).toEqual([]);
   });
 
-  it("does NOT let a stranger request guard or resident", () => {
-    // A public form accepting these put an uninvited name, email and
-    // flat number into a society's approval queue, and let anyone probe
-    // which flats exist. The committee creates these accounts instead.
-    expect(isSelfServiceRole("guard")).toBe(false);
-    expect(isSelfServiceRole("resident")).toBe(false);
-  });
-
-  it("names those two as committee-created", () => {
-    expect([...COMMITTEE_CREATED_ROLES].sort()).toEqual(["guard", "resident"]);
-    expect(isCommitteeCreatedRole("guard")).toBe(true);
-    expect(isCommitteeCreatedRole("resident")).toBe(true);
-    expect(isCommitteeCreatedRole("admin")).toBe(false);
-  });
-
-  it("keeps the two lists disjoint", () => {
-    // A role in both would mean the page offers something the lockdown
-    // SQL refuses from anon — a form that always fails on submit.
-    const overlap = SELF_SERVICE_ROLES.filter((r) => (COMMITTEE_CREATED_ROLES as string[]).includes(r));
-    expect(overlap).toEqual([]);
-  });
-
-  it("never offers super_admin", () => {
-    // super_admin is not society-scoped. Granting it through a public
-    // form would hand someone every society in the database.
-    expect(SELF_SERVICE_ROLES).not.toContain("super_admin");
-    expect(isSelfServiceRole("super_admin")).toBe(false);
-  });
-
-  it("rejects anything not on the list", () => {
-    for (const r of ["super_admin", "visitor", "", null, undefined, "ADMIN", "owner"]) {
+  it("refuses every role, including the committee ones", () => {
+    // admin and manager were the last pair still allowed. A stranger
+    // who knew a society's slug could drop an ADMIN request into its
+    // queue, and a busy reviewer approving it handed over full access.
+    // A new society arrives through /register-society instead, which a
+    // super admin reviews.
+    for (const r of ["admin", "manager", "guard", "resident", "super_admin", "", null, undefined]) {
       expect(isSelfServiceRole(r as string), String(r)).toBe(false);
     }
   });
+});
 
-  it("accepts each listed role", () => {
-    for (const r of SELF_SERVICE_ROLES) expect(isSelfServiceRole(r)).toBe(true);
+describe("who may create whom from the admin panel", () => {
+  it("an admin may create every member role", () => {
+    expect([...rolesCreatableBy(["admin"])].sort()).toEqual(["admin", "guard", "manager", "resident"]);
   });
 
-  it("has a label and a blurb for every role it offers", () => {
-    // A role with no label renders as a blank option on the form.
-    for (const r of SELF_SERVICE_ROLES) {
+  it("a manager may create guards and nothing else", () => {
+    // Follows from the capability model rather than being invented
+    // beside it: a manager is denied members.edit and admins.edit, and
+    // granted guards.manage.
+    expect(rolesCreatableBy(["manager"])).toEqual(["guard"]);
+  });
+
+  it("a MANAGER CANNOT create an admin", () => {
+    // The escalation that shipped in the first version of
+    // registration_lockdown.sql. Creation returns a temporary password
+    // to whoever triggered it, so a manager who could create an admin
+    // could simply sign in as one.
+    expect(canCreateRole(["manager"], "admin")).toBe(false);
+    expect(canCreateRole(["manager"], "manager")).toBe(false);
+    expect(canCreateRole(["manager"], "resident")).toBe(false);
+    expect(canCreateRole(["manager"], "guard")).toBe(true);
+  });
+
+  it("someone holding both admin and manager gets the admin set", () => {
+    expect([...rolesCreatableBy(["manager", "admin"])].sort())
+      .toEqual(["admin", "guard", "manager", "resident"]);
+  });
+
+  it("guards, residents and nobody can create anyone", () => {
+    for (const roles of [["guard"], ["resident"], ["visitor"], [], undefined, null]) {
+      expect(rolesCreatableBy(roles as AppRole[]), String(roles)).toEqual([]);
+    }
+  });
+
+  it("super_admin is never a creatable target", () => {
+    // It is not society-scoped, so granting it here would hand someone
+    // every society in the database.
+    for (const actor of [["admin"], ["super_admin"], ["manager"]]) {
+      expect(rolesCreatableBy(actor as AppRole[])).not.toContain("super_admin");
+      expect(canCreateRole(actor as AppRole[], "super_admin")).toBe(false);
+    }
+  });
+
+  it("every creatable role has a label, so the dropdown is never blank", () => {
+    for (const r of rolesCreatableBy(["admin"])) {
       expect(ROLE_LABEL[r], `no label for ${r}`).toBeTruthy();
-      expect(ROLE_BLURB[r], `no blurb for ${r}`).toBeTruthy();
     }
   });
 });

@@ -19,14 +19,14 @@ import { supabase } from "@/integrations/supabase/client";
  * society_id below is checked against the caller's own, so this helper
  * cannot write into another society's queue however it is called.
  */
-export type MemberRole = "guard" | "resident";
+export type MemberRole = "guard" | "resident" | "manager" | "admin";
 
 export interface NewMember {
   societyId: string;
   role: MemberRole;
   displayName: string;
   email: string;
-  /** Residents only; ignored for guards. */
+  /** Residents only; ignored for every other role. */
   wing?: string | null;
   flatNumber?: string | null;
 }

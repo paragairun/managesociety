@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSocietyStructure } from "@/hooks/useSocietyStructure";
+import AddMemberForm from "@/components/AddMemberForm";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -156,6 +157,11 @@ const UserRegistry = () => {
         </div>
       </CardHeader>
       <CardContent>
+        {/* The only way an account is created now that nobody can
+            register themselves. The role list narrows itself to what
+            the signed-in person is allowed to create. */}
+        <AddMemberForm onCreated={() => void fetchUsers()} />
+
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input

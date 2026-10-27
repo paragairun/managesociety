@@ -10,15 +10,16 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+type Payload = Record<string, unknown>;
 const single = vi.fn();
-const insert = vi.fn(() => ({ select: () => ({ single }) }));
-const from = vi.fn(() => ({ insert }));
-const invoke = vi.fn();
+const insert = vi.fn((_payload: Payload) => ({ select: () => ({ single }) }));
+const from = vi.fn((_table: string) => ({ insert }));
+const invoke = vi.fn((_fn: string, _opts: Payload) => Promise.resolve({ data: {}, error: null }));
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
-    from: (...a: unknown[]) => from(...a),
-    functions: { invoke: (...a: unknown[]) => invoke(...a) },
+    from: (table: string) => from(table),
+    functions: { invoke: (fn: string, opts: Payload) => invoke(fn, opts) },
   },
 }));
 

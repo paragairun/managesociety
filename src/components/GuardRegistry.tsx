@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Shield, Search, Trash2, Clock, Loader2, UserPlus } from "lucide-react";
+import { Shield, Search, Trash2, Clock, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Label } from "@/components/ui/label";
-import { onboardMember } from "@/lib/memberOnboarding";
+import AddMemberForm from "@/components/AddMemberForm";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
@@ -125,38 +124,6 @@ const GuardRegistry = () => {
     await fetchGuards();
   };
 
-  // Guards can no longer register themselves, so this is now the only
-  // way a guard account comes into existence. onboardMember writes the
-  // registration request and approves it in one step — the same path
-  // the bulk resident importer uses.
-  const [adding, setAdding] = useState(false);
-  const [newGuard, setNewGuard] = useState({ display_name: "", email: "" });
-  const [tempPassword, setTempPassword] = useState<string | null>(null);
-
-  const addGuard = async () => {
-    if (!societyId) { toast({ title: "Society not loaded", variant: "destructive" }); return; }
-    setAdding(true);
-    setTempPassword(null);
-    const result = await onboardMember({
-      societyId,
-      role: "guard",
-      displayName: newGuard.display_name,
-      email: newGuard.email,
-    });
-    setAdding(false);
-
-    if (!result.ok) {
-      toast({ title: "Could not add guard", description: result.error, variant: "destructive" });
-      return;
-    }
-    toast({ title: `Guard account created for ${newGuard.email.trim()}` });
-    // Shown until the admin navigates away. The approval function only
-    // returns this once, so hiding it behind a toast would lose it.
-    setTempPassword(result.tempPassword ?? null);
-    setNewGuard({ display_name: "", email: "" });
-    void fetchGuards();
-  };
-
   const fmt = (iso: string | null) => {
     if (!iso) return "No activity yet";
     const d = new Date(iso);
@@ -173,49 +140,9 @@ const GuardRegistry = () => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="mb-4 p-3 rounded-lg border border-border bg-secondary/20 space-y-3">
-          <p className="text-sm font-medium flex items-center gap-2">
-            <UserPlus className="h-4 w-4" /> Add a guard
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="guard-name" className="text-xs">Full name</Label>
-              <Input
-                id="guard-name"
-                placeholder="e.g. Ramesh Patil"
-                value={newGuard.display_name}
-                onChange={(e) => setNewGuard((p) => ({ ...p, display_name: e.target.value }))}
-                className="touch-target"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="guard-email" className="text-xs">Email</Label>
-              <Input
-                id="guard-email"
-                type="email"
-                placeholder="guard@example.com"
-                value={newGuard.email}
-                onChange={(e) => setNewGuard((p) => ({ ...p, email: e.target.value }))}
-                className="touch-target"
-              />
-            </div>
-          </div>
-          <Button
-            onClick={() => void addGuard()}
-            disabled={adding || !newGuard.display_name.trim() || !newGuard.email.trim()}
-            className="w-full sm:w-auto touch-target"
-          >
-            {adding ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Creating…</> : "Create guard account"}
-          </Button>
-          {tempPassword && (
-            <div className="rounded-md border border-success/40 bg-success/10 p-3">
-              <p className="text-xs text-muted-foreground">
-                Temporary password — shown once. Give it to the guard and ask them to change it.
-              </p>
-              <p className="font-mono text-sm mt-1 break-all">{tempPassword}</p>
-            </div>
-          )}
-        </div>
+        {/* Same component the Users tab uses, pinned to guards so the
+            registry stays about guards. */}
+        <AddMemberForm only={["guard"]} title="Add a guard" onCreated={() => void fetchGuards()} />
 
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

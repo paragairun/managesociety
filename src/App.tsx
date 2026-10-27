@@ -14,7 +14,6 @@ import ResidentLogin from "./pages/ResidentLogin";
 import ResidentPortal from "./pages/ResidentPortal";
 import AdminLogin from "./pages/AdminLogin";
 import AdminPanel from "./pages/AdminPanel";
-import Register from "./pages/Register";
 import SocietyRegister from "./pages/SocietyRegister";
 import LoginPortal from "./pages/LoginPortal";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
@@ -60,11 +59,6 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-            <Route path="/register" element={<Register />} />
-            {/* Societies share this link with their members. The slug is
-                how an anonymous visitor names a society now that the
-                public list is gone. */}
-            <Route path="/:societySlug/register" element={<Register />} />
             <Route path="/register-society" element={<SocietyRegister />} />
             <Route path="/login" element={<LoginPortal />} />
             <Route path="/reset-password" element={<ResetPassword />} />

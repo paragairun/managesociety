@@ -146,48 +146,63 @@ export function isManagerOnly(roles: AppRole[] | undefined | null): boolean {
 }
 
 /**
- * Roles a person with no account may request for themselves on the
- * public /register page.
+ * Roles a person with no account may request for themselves.
  *
- * Only committee roles. Someone joining a society as a guard or a
- * resident already has a committee who can create them, so there is no
- * reason to let a stranger put their name, email and flat number into
- * that society's queue — or to let them discover which flats exist by
- * watching what the form accepts. Those two are in
- * COMMITTEE_CREATED_ROLES below.
+ * NONE. There is no public registration any more.
  *
- * registration_requests.requested_role is plain text and the insert
- * used to be WITH CHECK (true), so this list was never a gate on its
- * own — anyone could POST to the REST endpoint naming any role in the
- * enum, super_admin included, which is not society-scoped.
- * supabase/schema/registration_lockdown.sql is what enforces it: anon
- * may insert only these roles, and a committee member may create the
- * member roles for their own society alone.
+ * A society joins through /register-society, which a super admin
+ * reviews; approving it creates the society, the first admin's auth
+ * user, their profile and their admin role in one step. Everybody
+ * after that is created from inside the admin panel. So no door was
+ * needed here, and the one that existed let a stranger who knew a
+ * society's slug drop an ADMIN request into its queue, where a busy
+ * reviewer might approve it.
  *
- * super_admin is absent deliberately and must stay absent.
+ * Kept as an empty list rather than deleted, so that adding a role
+ * back is a deliberate edit against a test that pins it empty, and so
+ * the reasoning above stays attached to the decision.
+ *
+ * Enforced by supabase/schema/registration_public_close.sql: anon has
+ * no INSERT on registration_requests at all. This list is only what
+ * the UI would offer, and the UI is not a control.
  */
-export const SELF_SERVICE_ROLES: AppRole[] = ["admin", "manager"];
-
-/**
- * Roles a committee creates FOR someone, rather than roles a stranger
- * may ask for. Guards and residents moved here: a public form that
- * accepted them let anyone put a name, an email and a flat number into
- * a society's approval queue uninvited, and probe which flats exist
- * while doing it. The committee adds them from the admin panel, which
- * writes a request and approves it in one step.
- *
- * approve-registration still accepts all four, because it governs what
- * an ADMIN may approve — not what an anonymous visitor may request.
- * Those are different questions and were previously one list.
- */
-export const COMMITTEE_CREATED_ROLES: AppRole[] = ["guard", "resident"];
-
-export function isCommitteeCreatedRole(role: string | null | undefined): boolean {
-  return !!role && (COMMITTEE_CREATED_ROLES as string[]).includes(role);
-}
+export const SELF_SERVICE_ROLES: AppRole[] = [];
 
 export function isSelfServiceRole(role: string | null | undefined): boolean {
   return !!role && (SELF_SERVICE_ROLES as string[]).includes(role);
+}
+
+/**
+ * Who may create whom, from inside the admin panel.
+ *
+ * Derived from the capability model rather than invented beside it: a
+ * manager is denied members.edit and admins.edit and granted
+ * guards.manage, so a manager may add guards and nothing else. An
+ * admin may add anyone, including another admin.
+ *
+ * This matters more than a disabled dropdown suggests. The approval
+ * step returns a temporary password to whoever triggered it, so a
+ * manager who could create an admin could simply sign in as one. The
+ * first version of registration_lockdown.sql allowed exactly that;
+ * registration_public_close.sql fixes it, and this mirrors the fix so
+ * the form does not offer what the database will refuse.
+ *
+ * super_admin is never creatable here. It is not society-scoped.
+ */
+export function rolesCreatableBy(roles: AppRole[] | null | undefined): AppRole[] {
+  const held = roles ?? [];
+  if (held.includes("admin") || held.includes("super_admin")) {
+    return ["admin", "manager", "guard", "resident"];
+  }
+  if (held.includes("manager")) return ["guard"];
+  return [];
+}
+
+export function canCreateRole(
+  roles: AppRole[] | null | undefined,
+  target: string | null | undefined,
+): boolean {
+  return !!target && (rolesCreatableBy(roles) as string[]).includes(target);
 }
 
 /** What the register page calls each role. */
