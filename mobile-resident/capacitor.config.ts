@@ -5,6 +5,11 @@ const config: CapacitorConfig = {
   appId: 'in.managesociety.resident',
   appName: 'ManageSociety Resident',
   webDir: 'www',
+  // The society picker this used to open (/login/society) was removed
+  // when login stopped asking which society you belong to — it is read
+  // from your profile after you sign in. That URL now 404s, so this
+  // points at the role's own login page.
+  //
   // This app is a thin native shell around the live site -- it always loads
   // the real, currently-deployed web app rather than bundling a copy of it.
   // That means ordinary web app updates (new features, bug fixes) show up
@@ -12,7 +17,7 @@ const config: CapacitorConfig = {
   // update needed. The .apk only needs rebuilding if the native shell itself
   // changes (icon, permissions, app name).
   server: {
-    url: 'https://managesociety.in/login/society?role=resident&utm_source=android_app&utm_medium=app',
+    url: 'https://managesociety.in/resident?utm_source=android_app&utm_medium=app',
     cleartext: false,
   },
 };
