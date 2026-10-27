@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   can, capabilitiesOf, canOpenAdminPanel, isManagerOnly,
   SELF_SERVICE_ROLES, isSelfServiceRole, ROLE_LABEL, ROLE_BLURB, roleSatisfies,
+  COMMITTEE_CREATED_ROLES, isCommitteeCreatedRole,
   type AppRole, type Capability,
 } from "./permissions";
 
@@ -118,8 +119,30 @@ describe("isManagerOnly", () => {
 });
 
 describe("self-service roles on the public register page", () => {
-  it("offers the four roles a person may request", () => {
-    expect([...SELF_SERVICE_ROLES].sort()).toEqual(["admin", "guard", "manager", "resident"]);
+  it("offers only the committee roles", () => {
+    expect([...SELF_SERVICE_ROLES].sort()).toEqual(["admin", "manager"]);
+  });
+
+  it("does NOT let a stranger request guard or resident", () => {
+    // A public form accepting these put an uninvited name, email and
+    // flat number into a society's approval queue, and let anyone probe
+    // which flats exist. The committee creates these accounts instead.
+    expect(isSelfServiceRole("guard")).toBe(false);
+    expect(isSelfServiceRole("resident")).toBe(false);
+  });
+
+  it("names those two as committee-created", () => {
+    expect([...COMMITTEE_CREATED_ROLES].sort()).toEqual(["guard", "resident"]);
+    expect(isCommitteeCreatedRole("guard")).toBe(true);
+    expect(isCommitteeCreatedRole("resident")).toBe(true);
+    expect(isCommitteeCreatedRole("admin")).toBe(false);
+  });
+
+  it("keeps the two lists disjoint", () => {
+    // A role in both would mean the page offers something the lockdown
+    // SQL refuses from anon — a form that always fails on submit.
+    const overlap = SELF_SERVICE_ROLES.filter((r) => (COMMITTEE_CREATED_ROLES as string[]).includes(r));
+    expect(overlap).toEqual([]);
   });
 
   it("never offers super_admin", () => {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { roleSatisfies, type AppRole } from "@/lib/permissions";
+import { roleSatisfies, isCommitteeCreatedRole, type AppRole } from "@/lib/permissions";
 import { Navigate, Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -272,17 +272,29 @@ const RoleLoginPage = ({ roleName, roleKey, icon: Icon, accentClass, dashboardPa
               <Button type="submit" size="lg" className="w-full touch-target text-lg font-bold" disabled={isLoading}>
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
-              <p className="text-center text-sm text-muted-foreground">
-                Don't have access?{" "}
-                {/* Carry the society through when the visitor arrived on a
-                    society URL. From a bare /admin there is no society to
-                    carry, and the registration page will say so rather than
-                    offering a list of every society on the platform. */}
-                <Link
-                  to={urlSlug ? `/${urlSlug}/register?role=${roleKey}` : `/register?role=${roleKey}`}
-                  className="text-primary hover:underline"
-                >Register here</Link>
-              </p>
+              {/* Guards and residents are created by their committee, so
+                  there is nothing to link them to. Pointing them at a
+                  form that now refuses their role would just waste their
+                  time; tell them who to ask instead. */}
+              {isCommitteeCreatedRole(roleKey) ? (
+                <p className="text-center text-sm text-muted-foreground">
+                  Don't have access? Your society committee creates
+                  {roleKey === "guard" ? " guard " : " resident "}
+                  accounts — please ask them to add you.
+                </p>
+              ) : (
+                <p className="text-center text-sm text-muted-foreground">
+                  Don't have access?{" "}
+                  {/* Carry the society through when the visitor arrived on a
+                      society URL. From a bare /admin there is no society to
+                      carry, and the registration page will say so rather than
+                      offering a list of every society on the platform. */}
+                  <Link
+                    to={urlSlug ? `/${urlSlug}/register?role=${roleKey}` : `/register?role=${roleKey}`}
+                    className="text-primary hover:underline"
+                  >Register here</Link>
+                </p>
+              )}
             </form>
           )}
         </CardContent>

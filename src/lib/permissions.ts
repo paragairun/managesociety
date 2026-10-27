@@ -146,24 +146,45 @@ export function isManagerOnly(roles: AppRole[] | undefined | null): boolean {
 }
 
 /**
- * Roles a person may request for themselves on the public /register
- * page, and the ONLY roles approve-registration will grant.
+ * Roles a person with no account may request for themselves on the
+ * public /register page.
  *
- * registration_requests.requested_role is plain text, the insert is
- * public ("Anyone can submit registration request"), and the approval
- * function used to write that value straight into user_roles. The
- * client list on /register was therefore the only gate, and a client
- * list is not a gate — anyone could POST a request naming any role in
- * the enum, including super_admin, which is not society-scoped. The
- * only thing left was an admin noticing the badge in the queue.
+ * Only committee roles. Someone joining a society as a guard or a
+ * resident already has a committee who can create them, so there is no
+ * reason to let a stranger put their name, email and flat number into
+ * that society's queue — or to let them discover which flats exist by
+ * watching what the form accepts. Those two are in
+ * COMMITTEE_CREATED_ROLES below.
  *
- * This list is mirrored by a CHECK constraint on the table and by a
- * guard inside approve-registration, so refusing it does not depend on
- * either the page or the reviewer.
+ * registration_requests.requested_role is plain text and the insert
+ * used to be WITH CHECK (true), so this list was never a gate on its
+ * own — anyone could POST to the REST endpoint naming any role in the
+ * enum, super_admin included, which is not society-scoped.
+ * supabase/schema/registration_lockdown.sql is what enforces it: anon
+ * may insert only these roles, and a committee member may create the
+ * member roles for their own society alone.
  *
  * super_admin is absent deliberately and must stay absent.
  */
-export const SELF_SERVICE_ROLES: AppRole[] = ["guard", "resident", "admin", "manager"];
+export const SELF_SERVICE_ROLES: AppRole[] = ["admin", "manager"];
+
+/**
+ * Roles a committee creates FOR someone, rather than roles a stranger
+ * may ask for. Guards and residents moved here: a public form that
+ * accepted them let anyone put a name, an email and a flat number into
+ * a society's approval queue uninvited, and probe which flats exist
+ * while doing it. The committee adds them from the admin panel, which
+ * writes a request and approves it in one step.
+ *
+ * approve-registration still accepts all four, because it governs what
+ * an ADMIN may approve — not what an anonymous visitor may request.
+ * Those are different questions and were previously one list.
+ */
+export const COMMITTEE_CREATED_ROLES: AppRole[] = ["guard", "resident"];
+
+export function isCommitteeCreatedRole(role: string | null | undefined): boolean {
+  return !!role && (COMMITTEE_CREATED_ROLES as string[]).includes(role);
+}
 
 export function isSelfServiceRole(role: string | null | undefined): boolean {
   return !!role && (SELF_SERVICE_ROLES as string[]).includes(role);

@@ -194,10 +194,22 @@ Deno.serve(async (req) => {
     // escalate anyone, even if the reviewer clicks approve without
     // reading the badge.
     //
-    // Mirrors SELF_SERVICE_ROLES in src/lib/permissions.ts and the
-    // CHECK constraint in supabase/schema/registration_role_allowlist.sql.
-    const SELF_SERVICE_ROLES = ["guard", "resident", "admin", "manager"];
-    if (!SELF_SERVICE_ROLES.includes(regRequest.requested_role)) {
+    // What an ADMIN may approve — deliberately WIDER than
+    // SELF_SERVICE_ROLES in src/lib/permissions.ts, which is what an
+    // anonymous visitor may REQUEST. Those were one list and are now
+    // two, because guards and residents can no longer self-register
+    // but are still created here, by the committee, via
+    // onboardMember() writing a request and approving it at once.
+    //
+    // Do NOT narrow this to match SELF_SERVICE_ROLES. Doing so would
+    // break the admin panel's Add Guard form and the bulk resident
+    // importer, which are now the only way those accounts exist.
+    //
+    // The outer bound is the CHECK constraint in
+    // supabase/schema/registration_lockdown.sql; super_admin is absent
+    // from both and must stay absent.
+    const APPROVABLE_ROLES = ["guard", "resident", "admin", "manager"];
+    if (!APPROVABLE_ROLES.includes(regRequest.requested_role)) {
       await adminClient
         .from("registration_requests")
         .update({ status: "rejected" })

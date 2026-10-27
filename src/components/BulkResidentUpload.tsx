@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSocietyStructure } from "@/hooks/useSocietyStructure";
+import { onboardMember } from "@/lib/memberOnboarding";
 
 
 interface ParsedResident {
@@ -106,39 +107,23 @@ const BulkResidentUpload = () => {
     const passwords: string[] = [];
 
     for (const row of rows) {
-      // 1. Create a registration request
-      const { data: reqData, error: reqErr } = await supabase
-        .from("registration_requests")
-        .insert({
-          display_name: row.display_name,
-          email: row.email,
-          requested_role: "resident",
-          wing: row.wing,
-          flat_number: row.flat_number,
-          status: "pending",
-          society_id: societyId,
-        })
-        .select("id")
-        .single();
-
-      if (reqErr) {
-        failCount++;
-        setProgress((p) => ({ ...p, done: p.done + 1 }));
-        continue;
-      }
-
-      // 2. Auto-approve via edge function
-      const { data, error } = await supabase.functions.invoke("approve-registration", {
-        body: { request_id: reqData.id, action: "approve" },
+      // Shared with the single Add Guard form — see
+      // src/lib/memberOnboarding.ts. Writes the request and approves it
+      // in one step, which is how a committee-created account is made.
+      const result = await onboardMember({
+        societyId,
+        role: "resident",
+        displayName: row.display_name,
+        email: row.email,
+        wing: row.wing,
+        flatNumber: row.flat_number,
       });
 
-      if (error || data?.error) {
-        failCount++;
-      } else {
+      if (result.ok) {
         successCount++;
-        if (data?.temp_password) {
-          passwords.push(`${row.email}: ${data.temp_password}`);
-        }
+        if (result.tempPassword) passwords.push(`${row.email}: ${result.tempPassword}`);
+      } else {
+        failCount++;
       }
 
       setProgress((p) => ({ ...p, done: p.done + 1 }));
