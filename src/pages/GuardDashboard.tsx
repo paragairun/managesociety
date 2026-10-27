@@ -17,6 +17,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import { decodeGuestPass } from "@/lib/guest-pass";
 import DashboardShell, { NavItem } from "@/components/DashboardShell";
 import DeliveryManager from "@/components/DeliveryManager";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 type VisitorRequest = Tables<"visitor_requests">;
 type EntryLog = Tables<"entry_logs">;
@@ -44,6 +45,12 @@ const GuardDashboard = () => {
   const { toast } = useToast();
   const { signOut, user, societyId, societyName, societySlug } = useAuth();
   const navigate = useNavigate();
+
+  // Registers this device for push inside the iOS or Android shell; a
+  // no-op in a browser tab. Guards are the role push actually matters
+  // for — a visitor waiting at the gate is time-sensitive in a way a
+  // maintenance notice is not.
+  usePushNotifications(user?.id);
   const guardLoginPath = societySlug ? `/${societySlug}/guard` : "/guard";
 
   const loadDashboardData = useCallback(async (showLoader = false) => {

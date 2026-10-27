@@ -1,29 +1,32 @@
-name: Build iOS Resident App
+name: Build iOS Apps
 
-# Builds the iOS resident app on a GitHub-hosted Mac, so no Mac of your
-# own is needed. Same shell idea as the Android apps: it loads the live
-# site, so ordinary web changes reach users with no rebuild. Rebuild
-# only when the native shell changes (icon, permissions, app name, the
-# URL it opens).
+# Builds the iOS resident and guard apps on a GitHub-hosted Mac, so no
+# Mac of your own is needed. Same shell idea as the Android apps: each
+# loads the live site, so ordinary web changes reach users with no
+# rebuild. Rebuild only when the native shell changes (icon,
+# permissions, app name, the URL it opens).
+#
+# A matrix over the two apps rather than two near-identical jobs,
+# matching build-release-aabs.yml. Adding a third shell later means one
+# more line under `include`.
 #
 # WHAT THIS PRODUCES TODAY
-# An UNSIGNED simulator build (.app, zipped, under the run's Artifacts).
-# You can drag it onto an iOS Simulator on any Mac and use the app. It
-# will NOT install on a physical iPhone and cannot go to TestFlight or
-# the App Store — both need an Apple Developer Program membership
-# ($99/year), which is not set up yet.
+# UNSIGNED simulator builds (.app, zipped, under the run's Artifacts),
+# one per app. Drag either onto an iOS Simulator on any Mac and it
+# runs. Neither will install on a physical iPhone, and neither can go
+# to TestFlight or the App Store — those need an Apple Developer
+# Program membership ($99/year), which is not set up yet.
 #
 # WHAT CHANGES WHEN YOU ENROL
-# The "Device / TestFlight build" job at the bottom is written and
-# commented out. Enrol, add the four repository secrets it lists, and
-# uncomment it. Nothing above needs to change.
+# The signed job at the bottom is written and commented out. Enrol, add
+# the repository secrets it lists, uncomment it. Nothing above changes.
 #
 # PUSH NOTIFICATIONS
-# Also gated on enrolment. Apple push needs an APNs key generated in the
-# Apple Developer portal and the Push Notifications capability on a real
-# App ID — neither exists without membership. The app code is ready
-# (usePushNotifications registers on both platforms); it simply will not
-# receive anything on iOS until that key exists.
+# Also gated on enrolment. Apple push needs an APNs key from the Apple
+# Developer portal and the Push Notifications capability on a real App
+# ID. The app code is ready — usePushNotifications is mounted on both
+# the resident and guard dashboards and reports the real platform — but
+# nothing will be delivered on iOS until that key exists.
 
 on:
   workflow_dispatch:
@@ -31,12 +34,26 @@ on:
     branches: [main]
     paths:
       - 'mobile-resident/**'
+      - 'mobile-guard/**'
+      - 'scripts/configure-ios.mjs'
       - '.github/workflows/build-ios.yml'
 
 jobs:
   build-simulator:
-    name: Unsigned simulator build
+    name: ${{ matrix.role }} (unsigned simulator)
     runs-on: macos-latest
+
+    strategy:
+      # One app failing should not hide whether the other builds.
+      fail-fast: false
+      matrix:
+        include:
+          - role: resident
+            app_dir: mobile-resident
+            app_id: in.managesociety.resident
+          - role: guard
+            app_dir: mobile-guard
+            app_id: in.managesociety.guard
 
     steps:
       - uses: actions/checkout@v4
@@ -46,15 +63,15 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        working-directory: mobile-resident
+        working-directory: ${{ matrix.app_dir }}
         run: npm install --no-audit --no-fund
 
       # The ios/ directory is generated output, like android/ is for the
-      # Android build. It is not committed: it is ~60 Xcode files that
-      # Capacitor recreates deterministically, and a stale committed copy
-      # is worse than no copy. Regenerated here each run.
+      # Android build. It is not committed: ~60 Xcode files Capacitor
+      # recreates deterministically, where a stale committed copy is
+      # worse than none. Regenerated every run.
       - name: Generate the iOS project
-        working-directory: mobile-resident
+        working-directory: ${{ matrix.app_dir }}
         run: |
           set -euo pipefail
           if [ ! -d ios ]; then
@@ -63,21 +80,33 @@ jobs:
             npx cap sync ios
           fi
 
-      # Rewrites utm_source so analytics can tell iPhone traffic from
-      # Android. Fails the build rather than shipping a wrong URL.
+      # Rewrites utm_source to ios_app. Run from the repo root, since
+      # one copy of this script serves both apps.
       - name: Apply iOS-specific configuration
-        working-directory: mobile-resident
-        run: node scripts/configure-ios.mjs
+        run: node scripts/configure-ios.mjs "${{ matrix.app_dir }}"
 
-      - name: Show what will be built
-        working-directory: mobile-resident
+      # The same class of mistake as the Android apps opening a route
+      # that had been deleted: nothing else in the pipeline reads this
+      # URL, so assert it here. Mirrors the EXPECTED_URL check in
+      # build-release-aabs.yml.
+      - name: Check the app will open the right URL
+        working-directory: ${{ matrix.app_dir }}
+        env:
+          EXPECTED_URL: https://managesociety.in/${{ matrix.role }}?utm_source=ios_app&utm_medium=app
         run: |
-          echo "--- capacitor.config.json as the app will see it ---"
-          cat ios/App/App/capacitor.config.json
-          xcodebuild -workspace ios/App/App.xcworkspace -list
+          set -euo pipefail
+          URL="$(node -e "console.log(require('./ios/App/App/capacitor.config.json').server.url)")"
+          echo "config says: ${URL}"
+          [[ "${URL}" == "${EXPECTED_URL}" ]] || {
+            echo "::error::The app would open '${URL}', expected '${EXPECTED_URL}'. Check ${{ matrix.app_dir }}/capacitor.config.ts."
+            exit 1; }
+          ID="$(node -e "console.log(require('./ios/App/App/capacitor.config.json').appId)")"
+          [[ "${ID}" == "${{ matrix.app_id }}" ]] || {
+            echo "::error::appId is '${ID}', expected '${{ matrix.app_id }}'."
+            exit 1; }
 
       - name: Build for the simulator
-        working-directory: mobile-resident
+        working-directory: ${{ matrix.app_dir }}
         run: |
           set -euo pipefail
           xcodebuild \
@@ -90,7 +119,7 @@ jobs:
             build
 
       - name: Package the .app
-        working-directory: mobile-resident
+        working-directory: ${{ matrix.app_dir }}
         run: |
           set -euo pipefail
           APP_PATH="$(find build/Build/Products -maxdepth 2 -name 'App.app' -type d | head -n 1)"
@@ -99,35 +128,47 @@ jobs:
             exit 1
           fi
           echo "Found $APP_PATH"
-          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" ManageSocietyResident-simulator.zip
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "ManageSociety-${{ matrix.role }}-simulator.zip"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: managesociety-resident-ios-simulator
-          path: mobile-resident/ManageSocietyResident-simulator.zip
+          name: managesociety-${{ matrix.role }}-ios-simulator
+          path: ${{ matrix.app_dir }}/ManageSociety-${{ matrix.role }}-simulator.zip
           if-no-files-found: error
 
   # ───────────────────────────────────────────────────────────────
-  # Device / TestFlight build — uncomment once enrolled in the
+  # Signed device / TestFlight builds — uncomment once enrolled in the
   # Apple Developer Program.
   #
-  # Repository secrets it needs (Settings -> Secrets and variables ->
-  # Actions). I can walk you through producing each one:
+  # Repository secrets needed (Settings -> Secrets and variables ->
+  # Actions). I can walk you through producing each:
   #
   #   IOS_CERTIFICATE_P12      base64 of your Apple distribution
   #                            certificate exported as .p12
-  #   IOS_CERTIFICATE_PASSWORD the password you set on that export
-  #   IOS_PROVISIONING_PROFILE base64 of the .mobileprovision for
-  #                            in.managesociety.resident
+  #   IOS_CERTIFICATE_PASSWORD the password set on that export
   #   IOS_TEAM_ID              your 10-character Apple Team ID
+  #   RESIDENT_PROVISIONING_PROFILE  base64 .mobileprovision for
+  #                                  in.managesociety.resident
+  #   GUARD_PROVISIONING_PROFILE     base64 .mobileprovision for
+  #                                  in.managesociety.guard
   #
-  # Add APP_STORE_CONNECT_* secrets as well if you want it to upload to
-  # TestFlight automatically rather than leaving the .ipa as an artifact.
+  # Two profiles because each app has its own bundle identifier, the
+  # same way the Android release build keeps a keystore per app.
   # ───────────────────────────────────────────────────────────────
   #
   # build-device:
-  #   name: Signed device build
+  #   name: ${{ matrix.role }} (signed)
   #   runs-on: macos-latest
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       include:
+  #         - role: resident
+  #           app_dir: mobile-resident
+  #           secret_prefix: RESIDENT
+  #         - role: guard
+  #           app_dir: mobile-guard
+  #           secret_prefix: GUARD
   #   steps:
   #     - uses: actions/checkout@v4
   #     - uses: actions/setup-node@v4
@@ -135,14 +176,14 @@ jobs:
   #         node-version: 20
   #
   #     - name: Install dependencies
-  #       working-directory: mobile-resident
+  #       working-directory: ${{ matrix.app_dir }}
   #       run: npm install --no-audit --no-fund
   #
-  #     - name: Import signing certificate
+  #     - name: Import signing certificate and profile
   #       env:
   #         CERT: ${{ secrets.IOS_CERTIFICATE_P12 }}
   #         CERT_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
-  #         PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+  #         PROFILE: ${{ secrets[format('{0}_PROVISIONING_PROFILE', matrix.secret_prefix)] }}
   #       run: |
   #         set -euo pipefail
   #         echo "$CERT" | base64 --decode > /tmp/cert.p12
@@ -156,15 +197,14 @@ jobs:
   #         cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
   #
   #     - name: Generate the iOS project
-  #       working-directory: mobile-resident
+  #       working-directory: ${{ matrix.app_dir }}
   #       run: npx cap add ios || npx cap sync ios
   #
   #     - name: Apply iOS-specific configuration
-  #       working-directory: mobile-resident
-  #       run: node scripts/configure-ios.mjs
+  #       run: node scripts/configure-ios.mjs "${{ matrix.app_dir }}"
   #
   #     - name: Archive and export
-  #       working-directory: mobile-resident
+  #       working-directory: ${{ matrix.app_dir }}
   #       env:
   #         TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
   #       run: |
@@ -185,6 +225,6 @@ jobs:
   #
   #     - uses: actions/upload-artifact@v4
   #       with:
-  #         name: managesociety-resident-ios-ipa
-  #         path: mobile-resident/build/ipa/*.ipa
+  #         name: managesociety-${{ matrix.role }}-ios-ipa
+  #         path: ${{ matrix.app_dir }}/build/ipa/*.ipa
   #         if-no-files-found: error
