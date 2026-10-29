@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from "@/auth/AuthContext";
 import { supabase } from "@/lib/supabase";
 import LoginScreen from "@/screens/LoginScreen";
 import HomeScreen from "@/screens/HomeScreen";
+import ScanScreen from "@/screens/ScanScreen";
 import { colors, type } from "@/theme";
 
 /**
@@ -102,9 +103,7 @@ const Shell = () => {
           <HomeScreen onNavigate={(screen) => navigation.navigate(screen as never)} />
         )}
       </Drawer.Screen>
-      <Drawer.Screen name="Scan" options={{ title: "Search & Scan" }}>
-        {() => <Placeholder name="Search & Scan" />}
-      </Drawer.Screen>
+      <Drawer.Screen name="Scan" component={ScanScreen} options={{ title: "Search & Scan" }} />
       <Drawer.Screen name="Approvals" options={{ title: "Pending Approvals" }}>
         {() => <Placeholder name="Pending Approvals" />}
       </Drawer.Screen>
