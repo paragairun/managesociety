@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   generateFlatNumbers, normalizeStructure, toEditableState, normalizeTowers,
   emptyWing, emptyTower,
-  type NormalizedWing, type TowerStructure,
+  parseStoredStructure, towerForWing, formatFlatAddress, flatsForWing, allWings,
+  type NormalizedWing, type NormalizedTower, type TowerStructure,
 } from "@/lib/societyStructure";
 
 describe("generateFlatNumbers", () => {
@@ -184,5 +185,89 @@ describe("normalizeTowers (backward-compat shim)", () => {
     const tower: TowerStructure = { tower_name: "", wings: [{ wing: "A", flat_from: "1", flat_to: "5", total_floors: "" }] };
     const result = normalizeTowers([tower]);
     expect("error" in result).toBe(true);
+  });
+});
+
+// ─── Reading a stored structure ─────────────────────────────────────────────
+
+const TOWERS: NormalizedTower[] = [
+  {
+    tower_name: "Tower 1",
+    wings: [
+      { wing: "A", flat_from: 101, flat_to: 103, floor_wise: false },
+      { wing: "B", flat_from: 201, flat_to: 202, floor_wise: false },
+    ],
+  },
+  {
+    tower_name: "Tower 2",
+    wings: [{ wing: "C", flat_from: 301, flat_to: 301, floor_wise: false }],
+  },
+];
+
+describe("parseStoredStructure", () => {
+  it("reads the current { floor_wise, towers } shape", () => {
+    expect(parseStoredStructure({ floor_wise: false, towers: TOWERS })).toEqual(TOWERS);
+  });
+
+  it("reads the older plain-array shape still present in live data", () => {
+    expect(parseStoredStructure(TOWERS)).toEqual(TOWERS);
+  });
+
+  it("treats a missing or empty structure as no structure", () => {
+    expect(parseStoredStructure(null)).toEqual([]);
+    expect(parseStoredStructure(undefined)).toEqual([]);
+    expect(parseStoredStructure({ floor_wise: false, towers: undefined as never })).toEqual([]);
+  });
+});
+
+describe("towerForWing", () => {
+  it("finds the tower a wing belongs to", () => {
+    expect(towerForWing(TOWERS, "B")).toBe("Tower 1");
+    expect(towerForWing(TOWERS, "C")).toBe("Tower 2");
+  });
+
+  it("returns undefined for an unknown wing", () => {
+    expect(towerForWing(TOWERS, "Z")).toBeUndefined();
+    expect(towerForWing([], "A")).toBeUndefined();
+  });
+});
+
+describe("formatFlatAddress", () => {
+  it("names the tower when the society has a structure", () => {
+    expect(formatFlatAddress(TOWERS, "A", "101")).toBe("Tower 1 • Wing A • 101");
+  });
+
+  it("falls back to wing-flat for societies with no structure", () => {
+    // Societies onboarded before the structure builder existed have no
+    // towers, and this is what their guards have always seen.
+    expect(formatFlatAddress([], "A", "101")).toBe("A-101");
+  });
+
+  it("falls back for a wing missing from the structure", () => {
+    expect(formatFlatAddress(TOWERS, "Z", "901")).toBe("Z-901");
+  });
+});
+
+describe("flatsForWing", () => {
+  it("generates the wing's flat numbers", () => {
+    expect(flatsForWing(TOWERS, "A")).toEqual(["101", "102", "103"]);
+  });
+
+  it("returns nothing for an unknown wing", () => {
+    expect(flatsForWing(TOWERS, "Z")).toEqual([]);
+  });
+});
+
+describe("allWings", () => {
+  it("flattens every wing with its tower name", () => {
+    expect(allWings(TOWERS)).toEqual([
+      { tower_name: "Tower 1", wing: "A" },
+      { tower_name: "Tower 1", wing: "B" },
+      { tower_name: "Tower 2", wing: "C" },
+    ]);
+  });
+
+  it("is empty with no towers", () => {
+    expect(allWings([])).toEqual([]);
   });
 });

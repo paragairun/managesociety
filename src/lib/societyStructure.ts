@@ -184,3 +184,65 @@ export const normalizeTowers = (towers: TowerStructure[]) => {
   if ("error" in result) return result;
   return { towers: result.structure.towers };
 };
+
+// ─── Reading a stored structure ─────────────────────────────────────────────
+//
+// These were the body of useSocietyStructure, which cannot be shared with
+// the native apps because a hook brings React and the website's Supabase
+// client with it. The lookups themselves are pure, so they live here and
+// both the hook and the native screens call them with towers they fetched
+// however they like.
+
+/**
+ * Normalise what is actually stored in society_structure.structure.
+ *
+ * Two shapes exist in the live data: the current
+ * `{ floor_wise, towers }` object, and an older plain array of towers
+ * written before the top-level flags were added. Both are read.
+ */
+export const parseStoredStructure = (
+  raw: NormalizedStructure | NormalizedTower[] | null | undefined,
+): NormalizedTower[] => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  return raw.towers ?? [];
+};
+
+/** The tower a wing belongs to, or undefined if the wing is unknown. */
+export const towerForWing = (
+  towers: NormalizedTower[],
+  wing: string,
+): string | undefined =>
+  towers.find((t) => t.wings.some((w) => w.wing === wing))?.tower_name;
+
+/**
+ * A flat address for display: "Tower 1 • Wing A • 101" when the society
+ * has a configured structure, and "A-101" when it does not.
+ *
+ * Societies onboarded before the structure builder existed have no
+ * towers at all, and the fallback is what their guards and residents
+ * have always seen — so it is the shape, not a placeholder.
+ */
+export const formatFlatAddress = (
+  towers: NormalizedTower[],
+  wing: string,
+  flatNumber: string,
+): string => {
+  const tower = towerForWing(towers, wing);
+  return tower ? `${tower} • Wing ${wing} • ${flatNumber}` : `${wing}-${flatNumber}`;
+};
+
+/** Every flat number in a wing, or an empty list if the wing is unknown. */
+export const flatsForWing = (towers: NormalizedTower[], wing: string): string[] => {
+  for (const tower of towers) {
+    const w = tower.wings.find((x) => x.wing === wing);
+    if (w) return generateFlatNumbers(w);
+  }
+  return [];
+};
+
+/** Every wing across every tower, each carrying its tower's name. */
+export const allWings = (
+  towers: NormalizedTower[],
+): { tower_name: string; wing: string }[] =>
+  towers.flatMap((tower) => tower.wings.map((w) => ({ tower_name: tower.tower_name, wing: w.wing })));

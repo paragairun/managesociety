@@ -1,11 +1,19 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { NormalizedTower, NormalizedStructure, generateFlatNumbers } from "@/lib/societyStructure";
+import {
+  parseStoredStructure, towerForWing, formatFlatAddress, flatsForWing, allWings,
+  type NormalizedTower, type NormalizedStructure,
+} from "@/lib/societyStructure";
 
 /**
- * Loads the approved structure (towers -> wings -> flat number ranges) for a society.
- * Returns empty state if the society has no structure defined yet (legacy societies),
- * in which case consuming components fall back to free-text inputs.
+ * Loads the approved structure (towers -> wings -> flat number ranges) for a
+ * society. Returns empty state if the society has no structure defined yet
+ * (legacy societies), in which case consuming components fall back to
+ * free-text inputs.
+ *
+ * The fetch is all this hook does. Every lookup it returns is a thin
+ * binding over a pure function in @/lib/societyStructure, because the
+ * native guard app needs the same flat formatting and cannot use a hook.
  */
 export const useSocietyStructure = (societyId: string | null | undefined) => {
   const [towers, setTowers] = useState<NormalizedTower[]>([]);
@@ -23,53 +31,21 @@ export const useSocietyStructure = (societyId: string | null | undefined) => {
       .then(({ data, error }) => {
         if (!active) return;
         setLoading(false);
-        if (error || !data?.structure) { setTowers([]); return; }
-        // Handle both old shape (plain array) and new shape ({ floor_wise, towers })
-        const raw = data.structure as unknown as NormalizedStructure | NormalizedTower[];
-        if (Array.isArray(raw)) {
-          setTowers(raw as NormalizedTower[]);
-        } else {
-          setTowers((raw as NormalizedStructure).towers ?? []);
-        }
+        if (error) { setTowers([]); return; }
+        setTowers(parseStoredStructure(
+          data?.structure as unknown as NormalizedStructure | NormalizedTower[] | null,
+        ));
       });
     return () => { active = false; };
   }, [societyId]);
-
-  /** Returns the tower name for a given wing, or undefined if not found. */
-  const towerForWing = (wing: string): string | undefined =>
-    towers.find((t) => t.wings.some((w) => w.wing === wing))?.tower_name;
-
-  /**
-   * Formats a flat address including tower name when available.
-   * e.g. "Tower 1 • Wing A • 101"  or  "A-101" fallback
-   */
-  const formatFlat = (wing: string, flatNumber: string): string => {
-    const tower = towerForWing(wing);
-    if (tower) return `${tower} • Wing ${wing} • ${flatNumber}`;
-    return `${wing}-${flatNumber}`;
-  };
-
-  /** Generate the list of flat numbers for a given wing, based on its range/floor settings. */
-  const flatsForWing = (wing: string): string[] => {
-    for (const tower of towers) {
-      const w = tower.wings.find((x) => x.wing === wing);
-      if (w) return generateFlatNumbers(w);
-    }
-    return [];
-  };
-
-  /** All wings across all towers, with their parent tower name. */
-  const allWings = towers.flatMap((tower) =>
-    tower.wings.map((w) => ({ tower_name: tower.tower_name, wing: w.wing }))
-  );
 
   return {
     structure: towers, // keep 'structure' alias for FlatPicker compatibility
     loading,
     hasStructure: towers.length > 0,
-    allWings,
-    flatsForWing,
-    towerForWing,
-    formatFlat,
+    allWings: allWings(towers),
+    flatsForWing: (wing: string) => flatsForWing(towers, wing),
+    towerForWing: (wing: string) => towerForWing(towers, wing),
+    formatFlat: (wing: string, flatNumber: string) => formatFlatAddress(towers, wing, flatNumber),
   };
 };

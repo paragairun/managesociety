@@ -10,40 +10,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSocietyStructure } from "@/hooks/useSocietyStructure";
 import FlatPicker from "@/components/FlatPicker";
+import {
+  DELIVERY_TYPES, deliveryIcon, deliveryLabel, statusDisplay, emptyDraft,
+  normalizeMobile, validateDraft, draftToRow, minutesLeft, groupVisits,
+  type DeliveryVisit, type StatusTone,
+} from "@/lib/deliveries";
 
-const DELIVERY_TYPES = [
-  { value: "amazon", label: "Amazon" },
-  { value: "flipkart", label: "Flipkart" },
-  { value: "zomato", label: "Zomato" },
-  { value: "swiggy", label: "Swiggy" },
-  { value: "blinkit", label: "Blinkit" },
-  { value: "zepto", label: "Zepto" },
-  { value: "milk", label: "Milk Delivery" },
-  { value: "grocery", label: "Grocery" },
-  { value: "courier", label: "Courier / Parcel" },
-  { value: "other", label: "Other" },
-];
-
-const DELIVERY_ICONS: Record<string, string> = {
-  amazon: "📦", flipkart: "🛒", zomato: "🍕", swiggy: "🛵", blinkit: "⚡",
-  zepto: "🟣", milk: "🥛", grocery: "🛍️", courier: "📮", other: "📬",
-};
-
-interface DeliveryVisit {
-  id: string; mobile: string; photo_base64: string | null; delivery_type: string;
-  agent_name: string | null; wing: string; flat_number: string;
-  status: "pending_approval" | "approved" | "rejected" | "completed" | "expired";
-  entry_time: string; exit_time: string | null; expires_at: string;
-}
-
-const emptyForm = () => ({ mobile: "", agent_name: "", delivery_type: "", photo_base64: "", wing: "", flat_number: "" });
-
-const STATUS_DISPLAY: Record<string, { label: string; color: string }> = {
-  pending_approval: { label: "Awaiting approval", color: "text-warning" },
-  approved:         { label: "Approved — let in", color: "text-success" },
-  rejected:         { label: "Rejected by resident", color: "text-destructive" },
-  completed:        { label: "Exited", color: "text-muted-foreground" },
-  expired:          { label: "Expired", color: "text-muted-foreground" },
+/**
+ * The delivery catalogue, the validation and the grouping now live in
+ * @/lib/deliveries, shared with the native guard app. The type `value`
+ * strings go into delivery_visits.delivery_type, so two apps offering
+ * different lists would write rows the other cannot label.
+ */
+const TONE_CLASS: Record<StatusTone, string> = {
+  waiting: "text-warning",
+  good: "text-success",
+  bad: "text-destructive",
+  done: "text-muted-foreground",
 };
 
 interface DeliveryManagerProps {
@@ -64,7 +47,7 @@ const DeliveryManager = ({ autoOpenTrigger }: DeliveryManagerProps = {}) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(emptyForm());
+  const [form, setForm] = useState(emptyDraft());
   const [cameraOpen, setCameraOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [exitingId, setExitingId] = useState<string | null>(null);
@@ -142,20 +125,16 @@ const DeliveryManager = ({ autoOpenTrigger }: DeliveryManagerProps = {}) => {
   };
 
   const handleSubmit = async () => {
-    if (!form.mobile.trim()) { toast({ title: "Enter mobile number", variant: "destructive" }); return; }
-    if (!form.delivery_type) { toast({ title: "Select delivery type", variant: "destructive" }); return; }
-    if (!form.wing || !form.flat_number) { toast({ title: "Select destination flat", variant: "destructive" }); return; }
-    if (!societyId) return;
+    // One message at a time, from the shared validator: the guard fixes
+    // one field, taps Register again, and is told the next thing.
+    const problem = validateDraft(form);
+    if (problem) { toast({ title: problem, variant: "destructive" }); return; }
+    if (!societyId) { toast({ title: "Society not loaded", variant: "destructive" }); return; }
 
     setSaving(true);
     const { error } = await supabase.from("delivery_visits").insert({
+      ...draftToRow(form),
       society_id: societyId,
-      mobile: form.mobile.trim(),
-      agent_name: form.agent_name.trim() || null,
-      delivery_type: form.delivery_type,
-      photo_base64: form.photo_base64 || null,
-      wing: form.wing,
-      flat_number: form.flat_number,
       guard_id: user?.id ?? null,
     });
     setSaving(false);
@@ -163,7 +142,7 @@ const DeliveryManager = ({ autoOpenTrigger }: DeliveryManagerProps = {}) => {
     if (error) { toast({ title: "Failed to register delivery", description: error.message, variant: "destructive" }); return; }
 
     toast({ title: "Delivery registered", description: "Waiting for resident approval." });
-    setForm(emptyForm()); setShowForm(false);
+    setForm(emptyDraft()); setShowForm(false);
     await loadVisits(false);
   };
 
@@ -178,24 +157,14 @@ const DeliveryManager = ({ autoOpenTrigger }: DeliveryManagerProps = {}) => {
     await loadVisits(false);
   };
 
-  const filtered = visits.filter((v) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return v.mobile.includes(q) || (v.agent_name ?? "").toLowerCase().includes(q) ||
-      v.flat_number.toLowerCase().includes(q) || v.wing.toLowerCase().includes(q) ||
-      v.delivery_type.toLowerCase().includes(q);
-  });
-
-  const pending = filtered.filter((v) => v.status === "pending_approval");
-  const approved = filtered.filter((v) => v.status === "approved");
-  const rejected = filtered.filter((v) => v.status === "rejected");
+  const { pending, approved, rejected, total } = groupVisits(visits, searchQuery);
 
   const VisitCard = ({ v }: { v: DeliveryVisit }) => {
-    const statusInfo = STATUS_DISPLAY[v.status];
-    const icon = DELIVERY_ICONS[v.delivery_type] ?? "📬";
-    const typeLabel = DELIVERY_TYPES.find((t) => t.value === v.delivery_type)?.label ?? v.delivery_type;
+    const statusInfo = statusDisplay(v.status);
+    const icon = deliveryIcon(v.delivery_type);
+    const typeLabel = deliveryLabel(v.delivery_type);
     const timeStr = new Date(v.entry_time).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-    const expiresIn = Math.max(0, Math.round((new Date(v.expires_at).getTime() - Date.now()) / 60000));
+    const expiresIn = minutesLeft(v.expires_at);
 
     return (
       <div className={`rounded-lg border p-3 space-y-2 ${v.status === "approved" ? "border-success/50 bg-success/5" : v.status === "rejected" ? "border-destructive/30 bg-destructive/5" : "border-border bg-secondary/30"}`}>
@@ -213,7 +182,7 @@ const DeliveryManager = ({ autoOpenTrigger }: DeliveryManagerProps = {}) => {
             </div>
           </div>
           <div className="text-right shrink-0">
-            <p className={`text-xs font-medium ${statusInfo.color}`}>{statusInfo.label}</p>
+            <p className={`text-xs font-medium ${TONE_CLASS[statusInfo.tone]}`}>{statusInfo.label}</p>
             {v.status === "pending_approval" && expiresIn > 0 && (
               <p className="text-xs text-muted-foreground flex items-center gap-1 justify-end mt-0.5">
                 <Clock className="h-3 w-3" /> {expiresIn}m left
@@ -274,14 +243,14 @@ const DeliveryManager = ({ autoOpenTrigger }: DeliveryManagerProps = {}) => {
               {rejected.map((v) => <VisitCard key={v.id} v={v} />)}
             </div>
           )}
-          {filtered.length === 0 && (
+          {total === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">No active deliveries.</p>
           )}
         </div>
       )}
 
       {/* Registration dialog */}
-      <Dialog open={showForm} onOpenChange={(o) => { if (!o) { setForm(emptyForm()); stopCamera(); } setShowForm(o); }}>
+      <Dialog open={showForm} onOpenChange={(o) => { if (!o) { setForm(emptyDraft()); stopCamera(); } setShowForm(o); }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Register Delivery</DialogTitle></DialogHeader>
           <div className="space-y-4">
@@ -323,7 +292,7 @@ const DeliveryManager = ({ autoOpenTrigger }: DeliveryManagerProps = {}) => {
                 autoCorrect="off"
                 spellCheck={false}
                 value={form.mobile}
-                onChange={(e) => setForm((p) => ({ ...p, mobile: e.target.value.replace(/\D/g, "").slice(0, 10) }))}
+                onChange={(e) => setForm((p) => ({ ...p, mobile: normalizeMobile(e.target.value) }))}
                 placeholder="98765 43210"
               />
             </div>
@@ -352,7 +321,7 @@ const DeliveryManager = ({ autoOpenTrigger }: DeliveryManagerProps = {}) => {
                 <SelectContent>
                   {DELIVERY_TYPES.map((t) => (
                     <SelectItem key={t.value} value={t.value}>
-                      {DELIVERY_ICONS[t.value]} {t.label}
+                      {t.icon} {t.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -372,7 +341,7 @@ const DeliveryManager = ({ autoOpenTrigger }: DeliveryManagerProps = {}) => {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowForm(false); setForm(emptyForm()); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setShowForm(false); setForm(emptyDraft()); }}>Cancel</Button>
             <Button onClick={() => void handleSubmit()} disabled={saving}>
               {saving ? "Registering..." : "Register & Notify Resident"}
             </Button>

@@ -1,6 +1,6 @@
 import "react-native-gesture-handler";
 import { useEffect } from "react";
-import { ActivityIndicator, AppState, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, AppState, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer, DarkTheme } from "@react-navigation/native";
@@ -15,6 +15,7 @@ import ScanScreen from "@/screens/ScanScreen";
 import ApprovalsScreen from "@/screens/ApprovalsScreen";
 import LiveInsideScreen from "@/screens/LiveInsideScreen";
 import BarriersScreen from "@/screens/BarriersScreen";
+import DeliveriesScreen from "@/screens/DeliveriesScreen";
 import { colors, type } from "@/theme";
 
 /**
@@ -62,13 +63,6 @@ const useAuthRefreshOnForeground = () => {
   }, []);
 };
 
-const Placeholder = ({ name }: { name: string }) => (
-  <View style={styles.placeholder}>
-    <Text style={styles.placeholderTitle}>{name}</Text>
-    <Text style={styles.placeholderBody}>Not built yet.</Text>
-  </View>
-);
-
 const Shell = () => {
   const { user, loading } = useAuth();
   useAuthRefreshOnForeground();
@@ -110,9 +104,7 @@ const Shell = () => {
       <Drawer.Screen name="Approvals" component={ApprovalsScreen} options={{ title: "Pending Approvals" }} />
       <Drawer.Screen name="Live" component={LiveInsideScreen} options={{ title: "Live Inside" }} />
       <Drawer.Screen name="Barriers" component={BarriersScreen} options={{ title: "Boom Barriers" }} />
-      <Drawer.Screen name="Deliveries" options={{ title: "Deliveries" }}>
-        {() => <Placeholder name="Deliveries" />}
-      </Drawer.Screen>
+      <Drawer.Screen name="Deliveries" component={DeliveriesScreen} options={{ title: "Deliveries" }} />
     </Drawer.Navigator>
   );
 };
@@ -149,10 +141,4 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: "center", justifyContent: "center",
     backgroundColor: colors.background,
   },
-  placeholder: {
-    flex: 1, alignItems: "center", justifyContent: "center",
-    backgroundColor: colors.background, gap: 8,
-  },
-  placeholderTitle: { color: colors.text, fontSize: type.heading, fontWeight: "700" },
-  placeholderBody: { color: colors.textMuted, fontSize: type.label },
 });

@@ -31,14 +31,14 @@
       "bundleIdentifier": "in.managesociety.guard",
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Scanning visitor, vehicle and staff QR codes at the gate."
+        "NSCameraUsageDescription": "Scanning QR codes and photographing delivery agents at the gate."
       }
     },
     "plugins": [
       [
         "expo-camera",
         {
-          "cameraPermission": "Scanning visitor, vehicle and staff QR codes at the gate."
+          "cameraPermission": "Scanning QR codes and photographing delivery agents at the gate."
         }
       ],
       "expo-notifications"
