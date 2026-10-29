@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSocietyStructure } from "@/hooks/useSocietyStructure";
 import AddMemberForm from "@/components/AddMemberForm";
+import { can, MANAGER_RESTRICTION_NOTE, type AppRole } from "@/lib/permissions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,8 +43,17 @@ const roleColor = (role: string) => {
 };
 
 const UserRegistry = () => {
-  const { societyId } = useAuth();
+  const { societyId, roles } = useAuth();
   const { formatFlat } = useSocietyStructure(societyId);
+
+  // A manager may look members up but not change or remove them. The
+  // capability table said so from the day the role was added; nothing
+  // read it, so a manager saw the same selection checkboxes and the
+  // same Delete button an admin does. The button called delete-user,
+  // which runs with the service role and checks for 'admin' — so it
+  // failed with a bare 403 after the confirmation dialog, which reads
+  // as a broken screen rather than a restriction.
+  const mayDelete = can(roles as AppRole[], "members.delete");
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -92,7 +102,10 @@ const UserRegistry = () => {
   };
 
   const deleteSelected = async () => {
-    if (selected.size === 0) return;
+    // Belt and braces. The button is hidden above, but hiding a button
+    // is not a check — and delete-user is the one call here that cannot
+    // be undone.
+    if (!mayDelete || selected.size === 0) return;
     setDeleting(true);
     let success = 0;
     let failed = 0;
@@ -132,7 +145,7 @@ const UserRegistry = () => {
             <Users className="h-5 w-5 text-primary" />
             User Registry ({filteredUsers.length})
           </CardTitle>
-          {selected.size > 0 && (
+          {mayDelete && selected.size > 0 && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" disabled={deleting} className="touch-target gap-1 text-xs">
@@ -162,6 +175,12 @@ const UserRegistry = () => {
             the signed-in person is allowed to create. */}
         <AddMemberForm onCreated={() => void fetchUsers()} />
 
+        {!mayDelete && (
+          <p className="mb-3 text-xs text-muted-foreground rounded-md border border-border bg-muted/40 p-2">
+            {MANAGER_RESTRICTION_NOTE}
+          </p>
+        )}
+
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -179,11 +198,13 @@ const UserRegistry = () => {
           <div className="space-y-2">
             {(expanded ? filteredUsers : filteredUsers.slice(0, 5)).map((u) => (
               <div key={u.user_id} className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50 border border-border">
-                <Checkbox
-                  checked={selected.has(u.user_id)}
-                  onCheckedChange={() => toggle(u.user_id)}
-                  className="mt-1 shrink-0"
-                />
+                {mayDelete && (
+                  <Checkbox
+                    checked={selected.has(u.user_id)}
+                    onCheckedChange={() => toggle(u.user_id)}
+                    className="mt-1 shrink-0"
+                  />
+                )}
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-bold text-foreground">{u.display_name ?? u.email ?? "Unnamed"}</p>

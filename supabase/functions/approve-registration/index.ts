@@ -11,6 +11,26 @@ const BodySchema = z.object({
   action: z.enum(["approve", "reject"]),
 });
 
+/**
+ * A random temporary password, shown once to whoever created the
+ * account so they can pass it on.
+ *
+ * Deliberately avoids look-alike characters (0/O, 1/l/I): this gets
+ * read off a screen and typed into a phone by someone who did not
+ * choose it, and an ambiguous character reads as a broken password
+ * rather than a misread one. 16 characters from a 58-symbol alphabet
+ * is ~93 bits, which is far past anything that matters here.
+ */
+function generateTempPassword(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  // Rejection-free modulo bias is irrelevant at this entropy, but the
+  // trailing "!" is not cosmetic: it satisfies password policies that
+  // demand a symbol, which Supabase can be configured to enforce.
+  return [...bytes].map((b) => alphabet[b % alphabet.length]).join("") + "!";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -41,15 +61,45 @@ Deno.serve(async (req) => {
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const { data: isAdmin } = await adminClient.rpc("has_role", {
-      _user_id: caller.id,
-      _role: "admin",
-    });
-    if (!isAdmin) {
+
+    // WHO IS CALLING, AND FOR WHICH SOCIETY
+    //
+    // Both answers are needed before anything else, because this
+    // function runs with the service role and therefore bypasses RLS
+    // entirely. Every restriction that protects registration_requests
+    // at the database level is absent in here and has to be restated.
+    //
+    // A manager is included deliberately. rolesCreatableBy() offers a
+    // manager the "Add a guard" form, and the insert policy in
+    // registration_public_close.sql accepts a manager's guard request —
+    // but this function refused them with "Admin only", so the form
+    // failed on its second step and left the request sitting pending in
+    // the queue. The three layers now agree: a manager may create
+    // guards, and only guards (enforced below, once the requested role
+    // is known).
+    //
+    // super_admin is intentionally still refused. They hold neither
+    // role, have no society, and approve whole SOCIETIES through
+    // approve-society — not individual members inside one.
+    const [{ data: isAdmin }, { data: isManager }, { data: callerSocietyId }] =
+      await Promise.all([
+        adminClient.rpc("has_role", { _user_id: caller.id, _role: "admin" }),
+        adminClient.rpc("has_role", { _user_id: caller.id, _role: "manager" }),
+        adminClient.rpc("get_user_society_id", { _user_id: caller.id }),
+      ]);
+
+    if (!isAdmin && !isManager) {
       return new Response(JSON.stringify({ error: "Admin only" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    if (!callerSocietyId) {
+      return new Response(
+        JSON.stringify({ error: "Your account is not linked to a society." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const parsedBody = BodySchema.safeParse(await req.json());
@@ -84,6 +134,43 @@ Deno.serve(async (req) => {
       });
     }
 
+    // THE REQUEST MUST BELONG TO THE CALLER'S OWN SOCIETY.
+    //
+    // request_id comes from the caller and was never checked against
+    // the caller's society. Because this runs with the service role,
+    // RLS could not catch it either. Any admin of any society could
+    // therefore pass the id of a pending request belonging to a
+    // DIFFERENT society and approve it — and the role is granted with
+    // regRequest.society_id, so approving a pending 'admin' request in
+    // someone else's society created a full admin over their members.
+    //
+    // The insert side was pinned to the caller's society in
+    // registration_public_close.sql. This is the matching check on the
+    // approval side, which is the half that actually creates accounts.
+    if (regRequest.society_id !== callerSocietyId) {
+      return new Response(
+        JSON.stringify({ error: "That request belongs to another society." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // A MANAGER MAY ONLY ACT ON GUARD REQUESTS.
+    //
+    // Mirrors rolesCreatableBy() in src/lib/permissions.ts and the
+    // insert policy: a manager is denied members.edit and admins.edit,
+    // so they may neither approve nor reject anything but a guard.
+    // Placed before the reject branch on purpose — letting a manager
+    // reject a pending admin request is a smaller power than creating
+    // one, but it is still a power over admins that they do not have.
+    if (!isAdmin && regRequest.requested_role !== "guard") {
+      return new Response(
+        JSON.stringify({
+          error: "Managers can only approve or reject guard accounts. Ask an admin.",
+        }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     if (action === "reject") {
       await adminClient
         .from("registration_requests")
@@ -100,7 +187,14 @@ Deno.serve(async (req) => {
       typeof regRequest.password === "string" && regRequest.password.length >= 8
         ? regRequest.password
         : null;
-    const tempPassword = userChosenPassword ?? `Triumph${Date.now().toString(36)}!`;
+    // A temporary password has to be unguessable, because it is the
+    // whole credential until the person changes it — and nothing forces
+    // them to. The previous value was `Triumph<base36 of Date.now()>!`,
+    // which carried the first customer's name into every society and,
+    // worse, was derived entirely from the clock: anyone who knew
+    // roughly when an account was created could enumerate a few
+    // thousand candidates offline. Random bytes instead.
+    const tempPassword = userChosenPassword ?? generateTempPassword();
 
     // Check if a user with this email already exists (registered under a different role)
     let existingUserId: string | null = null;

@@ -126,7 +126,9 @@ export function upiPaymentLink(opts: {
   params.set("cu", "INR");
   if (opts.note) {
     // UPI remark fields are short and reject punctuation on some apps.
-    params.set("tn", opts.note.replace(/[^\w \-]/g, "").slice(0, 50));
+    // The hyphen is last in the class, so it is already literal and
+    // needs no backslash — escaping it there was a lint error.
+    params.set("tn", opts.note.replace(/[^\w -]/g, "").slice(0, 50));
   }
   return `upi://pay?${params.toString()}`;
 }

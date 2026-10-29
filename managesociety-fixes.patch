@@ -1,0 +1,756 @@
+From 635513a4740f14a9f416ea59b18fe85af56c39a5 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 29 Oct 2026 05:31:46 +0000
+Subject: [PATCH] Fix manager guard-creation, cross-society approval hole, and
+ cleanup
+
+approve-registration refused managers with "Admin only" while the UI
+offered them the Add-a-guard form and RLS accepted the insert, so the
+form failed on its second step and left the request pending. It also
+never checked that the request belonged to the caller's own society --
+and because it runs with the service role, RLS could not catch that
+either, so any admin could approve a pending request (including an
+'admin' request) in someone else's society. Temp passwords were derived
+from Date.now(), making them enumerable; they are now random.
+
+The capability table in src/lib/permissions.ts had no callers. A manager
+therefore saw the same Delete button an admin does, which called
+delete-user and returned a bare 403 after the confirmation dialog. The
+admin sidebar and UserRegistry now read it.
+
+Also: clear all 5 eslint errors, delete the unused inactivity-logout
+hook, point config.toml at the live project, and document the hand-run
+schema files with a query that reports which are applied.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01SkgQmEqqV81BLi8paSpkvE
+---
+ README.md                                     | 116 +++++++++++++++++-
+ src/components/UserRegistry.tsx               |  37 ++++--
+ src/components/ui/command.tsx                 |   2 +-
+ src/components/ui/textarea.tsx                |   5 +-
+ src/hooks/use-inactivity-logout.ts            |  37 ------
+ src/lib/evCharging.ts                         |   4 +-
+ src/lib/fingerprint.ts                        |  23 +++-
+ src/pages/AdminPanel.tsx                      |  46 +++++--
+ supabase/config.toml                          |  12 +-
+ .../functions/approve-registration/index.ts   | 106 +++++++++++++++-
+ supabase/schema/README.md                     | 109 ++++++++++++++++
+ tailwind.config.ts                            |   7 +-
+ 12 files changed, 436 insertions(+), 68 deletions(-)
+ delete mode 100644 src/hooks/use-inactivity-logout.ts
+ create mode 100644 supabase/schema/README.md
+
+diff --git a/README.md b/README.md
+index 1b6533e..054ede9 100644
+--- a/README.md
++++ b/README.md
+@@ -1,2 +1,116 @@
+ # ManageSociety
+-TODO: Document your project here.
++
++Multi-tenant society management for Indian housing societies, live at
++**[managesociety.in](https://managesociety.in)**.
++
++One deployment serves many societies. Every table is scoped by
++`society_id`, and a user belongs to exactly one society
++(`profiles.user_id` is unique).
++
++## Stack
++
++React 18 + Vite + TypeScript, Tailwind and shadcn/ui, Supabase (Postgres,
++Auth, Edge Functions, Realtime). The site is a static build deployed to
++GitHub Pages from `.github/workflows/deploy.yml`; the custom domain comes
++from `CNAME`.
++
++## Roles
++
++| Role | Signs in at | Gets |
++|---|---|---|
++| `resident` | `/resident` | Guest passes, deliveries, dues, amenities, vehicles, EV charging, house helps |
++| `guard` | `/guard` | Scan & search, approvals, live-inside, boom barriers, deliveries |
++| `admin` | `/admin` | Everything for one society |
++| `manager` | `/admin` | An admin who cannot change members or other admins |
++| `super_admin` | `/super-admin/login` | Approves new societies; belongs to none |
++
++Who may do what is one table: **`src/lib/permissions.ts`**. Who may open
++which route is **`src/lib/routeAccess.ts`**. Both are pure functions with
++tests, and both are mirrored by RLS in Postgres — the client-side copy
++decides what the UI offers, never what the database permits.
++
++**Nobody registers themselves.** A society applies at `/register-society`
++and a super admin reviews it; every account after that is created from
++inside the admin panel. The public registration form is gone, and `anon`
++has no insert on `registration_requests`.
++
++## Layout
++
++```
++src/lib/          pure logic, unit-tested — permissions, route access,
++                  society lookup, member onboarding, EV maths, imports
++src/components/   feature components, shadcn primitives under ui/
++src/pages/        one per route; the three dashboards use DashboardShell
++supabase/functions/   edge functions (Deno)
++supabase/migrations/  tracked migrations — stops at 2026-07-06
++supabase/schema/      HAND-RUN SQL since then; read its README first
++mobile-resident/  Capacitor shell → managesociety.in/resident
++mobile-guard/     Capacitor shell → managesociety.in/guard
++```
++
++## Working on it
++
++```bash
++npm install
++npm run dev     # vite dev server
++npm test        # vitest — 387 tests
++npm run lint
++npx tsc -p tsconfig.app.json --noEmit
++```
++
++`npx tsc` currently reports errors, nearly all of them because
++`src/integrations/supabase/types.ts` is generated and has not been
++regenerated since the EV, fingerprint and push tables were added. Three
++modules (`src/lib/evDb.ts`, `src/lib/societyLookup.ts`,
++`src/hooks/usePushNotifications.ts`) carry a documented client cast to
++work around it. Regenerating removes all of it:
++
++```bash
++npx supabase gen types typescript --project-id lfmwrdtzyuveyvkfbsjn \
++  > src/integrations/supabase/types.ts
++```
++
++The deploy workflow does not gate on a full typecheck for that reason. It
++gates on the one class that serves a blank page — a name that does not
++resolve (TS2304/2552/2305/2307) — because `vite build` does not
++type-check, so a component referencing an un-imported identifier ships
++green and throws at first render.
++
++## Deploying
++
++Three independent pipelines. **Pushing to `main` does not deploy
++everything.**
++
++| What | How | Trigger |
++|---|---|---|
++| Website | `deploy.yml` → GitHub Pages | push to `main` |
++| Edge functions | `deploy-edge-functions.yml` | push touching `supabase/functions/**` |
++| Android `.aab` | `build-release-aabs.yml` | manual |
++| iOS simulator build | `build-ios.yml` | manual / mobile paths |
++| Database | **by hand**, in the SQL editor | nothing |
++
++The database is the one with no automation at all. See
++`supabase/schema/README.md` for what has to be run and a query that
++reports which files are already applied.
++
++## Mobile apps
++
++Both are thin Capacitor WebView shells that load the live site, so
++ordinary web changes reach users with no app update. Rebuild only when
++the shell itself changes — icon, permissions, app name, the URL it opens.
++
++Android versions are automatic: `versionCode` is minutes since
++2024-01-01, so it always increases, and CI asserts the package id and
++start URL before building. Package ids are permanent: `in.managesociety.resident`
++and `in.managesociety.guard`.
++
++iOS builds unsigned simulator apps only. The signed/TestFlight job is
++written and commented out at the bottom of `build-ios.yml`, waiting on an
++Apple Developer Program membership.
++
++## Push notifications
++
++Wired but inert. Tokens are collected into `device_push_tokens`, and
++`send-push-notification` can deliver through FCM, but **nothing calls it**
++— no trigger, no page, no function. Until something does, the Firebase
++dependency in the Android apps buys nothing.
+diff --git a/src/components/UserRegistry.tsx b/src/components/UserRegistry.tsx
+index 7086fe3..357ce65 100644
+--- a/src/components/UserRegistry.tsx
++++ b/src/components/UserRegistry.tsx
+@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
+ import { useAuth } from "@/contexts/AuthContext";
+ import { useSocietyStructure } from "@/hooks/useSocietyStructure";
+ import AddMemberForm from "@/components/AddMemberForm";
++import { can, MANAGER_RESTRICTION_NOTE, type AppRole } from "@/lib/permissions";
+ import {
+   AlertDialog,
+   AlertDialogAction,
+@@ -42,8 +43,17 @@ const roleColor = (role: string) => {
+ };
+ 
+ const UserRegistry = () => {
+-  const { societyId } = useAuth();
++  const { societyId, roles } = useAuth();
+   const { formatFlat } = useSocietyStructure(societyId);
++
++  // A manager may look members up but not change or remove them. The
++  // capability table said so from the day the role was added; nothing
++  // read it, so a manager saw the same selection checkboxes and the
++  // same Delete button an admin does. The button called delete-user,
++  // which runs with the service role and checks for 'admin' — so it
++  // failed with a bare 403 after the confirmation dialog, which reads
++  // as a broken screen rather than a restriction.
++  const mayDelete = can(roles as AppRole[], "members.delete");
+   const [users, setUsers] = useState<UserRow[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [selected, setSelected] = useState<Set<string>>(new Set());
+@@ -92,7 +102,10 @@ const UserRegistry = () => {
+   };
+ 
+   const deleteSelected = async () => {
+-    if (selected.size === 0) return;
++    // Belt and braces. The button is hidden above, but hiding a button
++    // is not a check — and delete-user is the one call here that cannot
++    // be undone.
++    if (!mayDelete || selected.size === 0) return;
+     setDeleting(true);
+     let success = 0;
+     let failed = 0;
+@@ -132,7 +145,7 @@ const UserRegistry = () => {
+             <Users className="h-5 w-5 text-primary" />
+             User Registry ({filteredUsers.length})
+           </CardTitle>
+-          {selected.size > 0 && (
++          {mayDelete && selected.size > 0 && (
+             <AlertDialog>
+               <AlertDialogTrigger asChild>
+                 <Button variant="destructive" size="sm" disabled={deleting} className="touch-target gap-1 text-xs">
+@@ -162,6 +175,12 @@ const UserRegistry = () => {
+             the signed-in person is allowed to create. */}
+         <AddMemberForm onCreated={() => void fetchUsers()} />
+ 
++        {!mayDelete && (
++          <p className="mb-3 text-xs text-muted-foreground rounded-md border border-border bg-muted/40 p-2">
++            {MANAGER_RESTRICTION_NOTE}
++          </p>
++        )}
++
+         <div className="relative mb-3">
+           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+           <Input
+@@ -179,11 +198,13 @@ const UserRegistry = () => {
+           <div className="space-y-2">
+             {(expanded ? filteredUsers : filteredUsers.slice(0, 5)).map((u) => (
+               <div key={u.user_id} className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50 border border-border">
+-                <Checkbox
+-                  checked={selected.has(u.user_id)}
+-                  onCheckedChange={() => toggle(u.user_id)}
+-                  className="mt-1 shrink-0"
+-                />
++                {mayDelete && (
++                  <Checkbox
++                    checked={selected.has(u.user_id)}
++                    onCheckedChange={() => toggle(u.user_id)}
++                    className="mt-1 shrink-0"
++                  />
++                )}
+                 <div className="flex-1 min-w-0 space-y-1">
+                   <div className="flex items-center gap-2 flex-wrap">
+                     <p className="font-bold text-foreground">{u.display_name ?? u.email ?? "Unnamed"}</p>
+diff --git a/src/components/ui/command.tsx b/src/components/ui/command.tsx
+index 68d5378..ad32c15 100644
+--- a/src/components/ui/command.tsx
++++ b/src/components/ui/command.tsx
+@@ -21,7 +21,7 @@ const Command = React.forwardRef<
+ ));
+ Command.displayName = CommandPrimitive.displayName;
+ 
+-interface CommandDialogProps extends DialogProps {}
++type CommandDialogProps = DialogProps;
+ 
+ const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
+   return (
+diff --git a/src/components/ui/textarea.tsx b/src/components/ui/textarea.tsx
+index 4a5643e..d6dccff 100644
+--- a/src/components/ui/textarea.tsx
++++ b/src/components/ui/textarea.tsx
+@@ -2,7 +2,10 @@ import * as React from "react";
+ 
+ import { cn } from "@/lib/utils";
+ 
+-export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
++// A type alias, not an empty interface: an interface that declares no
++// members of its own is identical to what it extends, which eslint
++// flags. The name is kept because it is exported and callers import it.
++export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
+ 
+ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ className, ...props }, ref) => {
+   return (
+diff --git a/src/hooks/use-inactivity-logout.ts b/src/hooks/use-inactivity-logout.ts
+deleted file mode 100644
+index 96472e4..0000000
+--- a/src/hooks/use-inactivity-logout.ts
++++ /dev/null
+@@ -1,37 +0,0 @@
+-import { useEffect, useRef } from "react";
+-import { useAuth } from "@/contexts/AuthContext";
+-import { useNavigate } from "react-router-dom";
+-import { useToast } from "@/hooks/use-toast";
+-
+-const INACTIVITY_MS = 3 * 60 * 1000; // 3 minutes
+-const ACTIVITY_EVENTS: (keyof DocumentEventMap)[] = [
+-  "mousedown", "mousemove", "keydown", "scroll", "touchstart", "click",
+-];
+-
+-export function useInactivityLogout(redirectTo: string) {
+-  const { signOut } = useAuth();
+-  const navigate = useNavigate();
+-  const { toast } = useToast();
+-  const timerRef = useRef<number>();
+-
+-  useEffect(() => {
+-    const logout = async () => {
+-      await signOut();
+-      toast({ title: "Session expired", description: "You were logged out due to inactivity." });
+-      navigate(redirectTo, { replace: true });
+-    };
+-
+-    const resetTimer = () => {
+-      window.clearTimeout(timerRef.current);
+-      timerRef.current = window.setTimeout(() => void logout(), INACTIVITY_MS);
+-    };
+-
+-    resetTimer();
+-    ACTIVITY_EVENTS.forEach((e) => document.addEventListener(e, resetTimer, { passive: true }));
+-
+-    return () => {
+-      window.clearTimeout(timerRef.current);
+-      ACTIVITY_EVENTS.forEach((e) => document.removeEventListener(e, resetTimer));
+-    };
+-  }, [signOut, navigate, redirectTo, toast]);
+-}
+diff --git a/src/lib/evCharging.ts b/src/lib/evCharging.ts
+index c0a7e5a..2137a95 100644
+--- a/src/lib/evCharging.ts
++++ b/src/lib/evCharging.ts
+@@ -126,7 +126,9 @@ export function upiPaymentLink(opts: {
+   params.set("cu", "INR");
+   if (opts.note) {
+     // UPI remark fields are short and reject punctuation on some apps.
+-    params.set("tn", opts.note.replace(/[^\w \-]/g, "").slice(0, 50));
++    // The hyphen is last in the class, so it is already literal and
++    // needs no backslash — escaping it there was a lint error.
++    params.set("tn", opts.note.replace(/[^\w -]/g, "").slice(0, 50));
+   }
+   return `upi://pay?${params.toString()}`;
+ }
+diff --git a/src/lib/fingerprint.ts b/src/lib/fingerprint.ts
+index eb90470..73358fd 100644
+--- a/src/lib/fingerprint.ts
++++ b/src/lib/fingerprint.ts
+@@ -104,13 +104,34 @@ export interface LocalBridgeConfig {
+   statusPath: string;       // e.g. /status
+ }
+ 
++/**
++ * What the local scanner bridge sends back.
++ *
++ * Every field is optional because this is a third-party service on
++ * 127.0.0.1 whose shape this code does not control — a different
++ * scanner vendor's bridge may omit any of them. The call sites already
++ * coerce with String()/Number() and check for absence, so declaring
++ * the fields loses none of that caution; it only replaces `any`, which
++ * silently switched type checking off for every one of those reads.
++ */
++interface BridgeResponse {
++  template?: string;
++  format?: string;
++  quality?: number;
++  device?: string;
++  matchId?: string;
++  score?: number;
++  /** Anything else the bridge chooses to send. */
++  [key: string]: unknown;
++}
++
+ export class LocalBridgeDriver implements FingerprintDriver {
+   constructor(private readonly cfg: LocalBridgeConfig) {}
+ 
+   get id() { return this.cfg.id; }
+   get label() { return this.cfg.label; }
+ 
+-  private async post(path: string, body: unknown, timeoutMs: number): Promise<any> {
++  private async post(path: string, body: unknown, timeoutMs: number): Promise<BridgeResponse> {
+     const ctrl = new AbortController();
+     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+     try {
+diff --git a/src/pages/AdminPanel.tsx b/src/pages/AdminPanel.tsx
+index c51e419..86987c6 100644
+--- a/src/pages/AdminPanel.tsx
++++ b/src/pages/AdminPanel.tsx
+@@ -36,20 +36,36 @@ import AmenitiesSetup from "@/components/AmenitiesSetup";
+ import AmenityBookingsAdmin from "@/components/AmenityBookingsAdmin";
+ import AdminHome from "@/components/AdminHome";
+ import EvChargingAdmin from "@/components/EvChargingAdmin";
++import { can, type AppRole, type Capability } from "@/lib/permissions";
+ 
+ type Vehicle = Tables<"vehicles">;
+ type EntryLog = Tables<"entry_logs">;
+ type ResidentOption = { user_id: string; display_name: string; flats: { wing: string; flat_number: string }[] };
+ 
+-const NAV: NavItem[] = [
++/**
++ * The sidebar, with the capability each entry needs.
++ *
++ * `requires` is omitted for Home and My Profile, which everyone who
++ * gets through the route guard may see. Everything else names a
++ * capability from src/lib/permissions.ts, so adding a section forces
++ * the author to say who it is for instead of silently granting it to
++ * every role that can open this panel.
++ *
++ * A manager passes every test below — they are denied only
++ * members.edit, members.delete and admins.edit, which are controls
++ * inside the Users section rather than the section itself. That is the
++ * intended outcome, not an oversight: a manager approving a booking
++ * needs to look a resident up. The restriction lives in UserRegistry.
++ */
++const NAV: (NavItem & { requires?: Capability })[] = [
+   { id: "home", title: "Home", icon: Home },
+-  { id: "stats", title: "Statistics", icon: BarChart3 },
+-  { id: "vehicle-management", title: "Vehicle Management", icon: Car },
+-  { id: "users", title: "Users", icon: Users },
+-  { id: "staff", title: "Staff & House Helps", icon: Users },
+-  { id: "amenity-management", title: "Amenity Management", icon: Sparkles },
+-  { id: "accounts-maintenance", title: "Accounts and Maintenance", icon: Wallet },
+-  { id: "ev-charging", title: "EV Charging", icon: Zap },
++  { id: "stats", title: "Statistics", icon: BarChart3, requires: "stats.view" },
++  { id: "vehicle-management", title: "Vehicle Management", icon: Car, requires: "vehicles.manage" },
++  { id: "users", title: "Users", icon: Users, requires: "members.view" },
++  { id: "staff", title: "Staff & House Helps", icon: Users, requires: "staff.manage" },
++  { id: "amenity-management", title: "Amenity Management", icon: Sparkles, requires: "amenities.manage" },
++  { id: "accounts-maintenance", title: "Accounts and Maintenance", icon: Wallet, requires: "billing.manage" },
++  { id: "ev-charging", title: "EV Charging", icon: Zap, requires: "ev.manage" },
+   { id: "profile", title: "My Profile", icon: User },
+ ];
+ 
+@@ -72,7 +88,17 @@ const AdminPanel = () => {
+   const [vehiclesExpanded, setVehiclesExpanded] = useState(false);
+   const [registrySearchQuery, setRegistrySearchQuery] = useState("");
+   const { toast } = useToast();
+-  const { signOut, societyId, societyName, societySlug } = useAuth();
++  const { signOut, societyId, societyName, societySlug, roles } = useAuth();
++
++  // Only the sections this person's role actually grants. Strips the
++  // `requires` key as well, so DashboardShell keeps taking a plain
++  // NavItem and knows nothing about capabilities.
++  const navItems: NavItem[] = useMemo(
++    () =>
++      NAV.filter((item) => !item.requires || can(roles as AppRole[], item.requires))
++        .map(({ id, title, icon }) => ({ id, title, icon })),
++    [roles],
++  );
+   const navigate = useNavigate();
+   const adminLoginPath = societySlug ? `/${societySlug}/admin` : "/admin";
+   const handleSignOut = async () => { await signOut(); navigate(adminLoginPath, { replace: true }); };
+@@ -570,7 +596,7 @@ const AdminPanel = () => {
+       brandTitle="Admin Panel"
+       brandSubtitle={societyName ?? "Your Society"}
+       groupLabel="Management"
+-      items={NAV}
++      items={navItems}
+       activeId={activeView}
+       onSelect={setActiveView}
+       onSignOut={handleSignOut}
+diff --git a/supabase/config.toml b/supabase/config.toml
+index 6346e62..df99583 100644
+--- a/supabase/config.toml
++++ b/supabase/config.toml
+@@ -1,4 +1,14 @@
+-project_id = "csiisydegdrmvvbaqifw"
++# The live project. This said "csiisydegdrmvvbaqifw" — a project this app
++# has not used for a long time — which was harmless in CI and dangerous
++# locally: deploy-edge-functions.yml runs `supabase link --project-ref`
++# from a secret and overwrites this value, so the pipeline was always
++# right, but anyone running `supabase functions deploy` or
++# `supabase db push` on their own machine without linking first was
++# pointed at the wrong project.
++#
++# Not a secret. The project ref is the subdomain of the Supabase URL,
++# which ships inside the JavaScript bundle by design — see .env.
++project_id = "lfmwrdtzyuveyvkfbsjn"
+ 
+ # ── Edge function settings ──
+ # Every function verifies a Supabase JWT by default. A biometric terminal
+diff --git a/supabase/functions/approve-registration/index.ts b/supabase/functions/approve-registration/index.ts
+index 4e74a45..9894353 100644
+--- a/supabase/functions/approve-registration/index.ts
++++ b/supabase/functions/approve-registration/index.ts
+@@ -11,6 +11,26 @@ const BodySchema = z.object({
+   action: z.enum(["approve", "reject"]),
+ });
+ 
++/**
++ * A random temporary password, shown once to whoever created the
++ * account so they can pass it on.
++ *
++ * Deliberately avoids look-alike characters (0/O, 1/l/I): this gets
++ * read off a screen and typed into a phone by someone who did not
++ * choose it, and an ambiguous character reads as a broken password
++ * rather than a misread one. 16 characters from a 58-symbol alphabet
++ * is ~93 bits, which is far past anything that matters here.
++ */
++function generateTempPassword(): string {
++  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
++  const bytes = new Uint8Array(16);
++  crypto.getRandomValues(bytes);
++  // Rejection-free modulo bias is irrelevant at this entropy, but the
++  // trailing "!" is not cosmetic: it satisfies password policies that
++  // demand a symbol, which Supabase can be configured to enforce.
++  return [...bytes].map((b) => alphabet[b % alphabet.length]).join("") + "!";
++}
++
+ Deno.serve(async (req) => {
+   if (req.method === "OPTIONS") {
+     return new Response("ok", { headers: corsHeaders });
+@@ -41,17 +61,47 @@ Deno.serve(async (req) => {
+     }
+ 
+     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+-    const { data: isAdmin } = await adminClient.rpc("has_role", {
+-      _user_id: caller.id,
+-      _role: "admin",
+-    });
+-    if (!isAdmin) {
++
++    // WHO IS CALLING, AND FOR WHICH SOCIETY
++    //
++    // Both answers are needed before anything else, because this
++    // function runs with the service role and therefore bypasses RLS
++    // entirely. Every restriction that protects registration_requests
++    // at the database level is absent in here and has to be restated.
++    //
++    // A manager is included deliberately. rolesCreatableBy() offers a
++    // manager the "Add a guard" form, and the insert policy in
++    // registration_public_close.sql accepts a manager's guard request —
++    // but this function refused them with "Admin only", so the form
++    // failed on its second step and left the request sitting pending in
++    // the queue. The three layers now agree: a manager may create
++    // guards, and only guards (enforced below, once the requested role
++    // is known).
++    //
++    // super_admin is intentionally still refused. They hold neither
++    // role, have no society, and approve whole SOCIETIES through
++    // approve-society — not individual members inside one.
++    const [{ data: isAdmin }, { data: isManager }, { data: callerSocietyId }] =
++      await Promise.all([
++        adminClient.rpc("has_role", { _user_id: caller.id, _role: "admin" }),
++        adminClient.rpc("has_role", { _user_id: caller.id, _role: "manager" }),
++        adminClient.rpc("get_user_society_id", { _user_id: caller.id }),
++      ]);
++
++    if (!isAdmin && !isManager) {
+       return new Response(JSON.stringify({ error: "Admin only" }), {
+         status: 403,
+         headers: { ...corsHeaders, "Content-Type": "application/json" },
+       });
+     }
+ 
++    if (!callerSocietyId) {
++      return new Response(
++        JSON.stringify({ error: "Your account is not linked to a society." }),
++        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
++      );
++    }
++
+     const parsedBody = BodySchema.safeParse(await req.json());
+ 
+     if (!parsedBody.success) {
+@@ -84,6 +134,43 @@ Deno.serve(async (req) => {
+       });
+     }
+ 
++    // THE REQUEST MUST BELONG TO THE CALLER'S OWN SOCIETY.
++    //
++    // request_id comes from the caller and was never checked against
++    // the caller's society. Because this runs with the service role,
++    // RLS could not catch it either. Any admin of any society could
++    // therefore pass the id of a pending request belonging to a
++    // DIFFERENT society and approve it — and the role is granted with
++    // regRequest.society_id, so approving a pending 'admin' request in
++    // someone else's society created a full admin over their members.
++    //
++    // The insert side was pinned to the caller's society in
++    // registration_public_close.sql. This is the matching check on the
++    // approval side, which is the half that actually creates accounts.
++    if (regRequest.society_id !== callerSocietyId) {
++      return new Response(
++        JSON.stringify({ error: "That request belongs to another society." }),
++        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
++      );
++    }
++
++    // A MANAGER MAY ONLY ACT ON GUARD REQUESTS.
++    //
++    // Mirrors rolesCreatableBy() in src/lib/permissions.ts and the
++    // insert policy: a manager is denied members.edit and admins.edit,
++    // so they may neither approve nor reject anything but a guard.
++    // Placed before the reject branch on purpose — letting a manager
++    // reject a pending admin request is a smaller power than creating
++    // one, but it is still a power over admins that they do not have.
++    if (!isAdmin && regRequest.requested_role !== "guard") {
++      return new Response(
++        JSON.stringify({
++          error: "Managers can only approve or reject guard accounts. Ask an admin.",
++        }),
++        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
++      );
++    }
++
+     if (action === "reject") {
+       await adminClient
+         .from("registration_requests")
+@@ -100,7 +187,14 @@ Deno.serve(async (req) => {
+       typeof regRequest.password === "string" && regRequest.password.length >= 8
+         ? regRequest.password
+         : null;
+-    const tempPassword = userChosenPassword ?? `Triumph${Date.now().toString(36)}!`;
++    // A temporary password has to be unguessable, because it is the
++    // whole credential until the person changes it — and nothing forces
++    // them to. The previous value was `Triumph<base36 of Date.now()>!`,
++    // which carried the first customer's name into every society and,
++    // worse, was derived entirely from the clock: anyone who knew
++    // roughly when an account was created could enumerate a few
++    // thousand candidates offline. Random bytes instead.
++    const tempPassword = userChosenPassword ?? generateTempPassword();
+ 
+     // Check if a user with this email already exists (registered under a different role)
+     let existingUserId: string | null = null;
+diff --git a/supabase/schema/README.md b/supabase/schema/README.md
+new file mode 100644
+index 0000000..b0801c8
+--- /dev/null
++++ b/supabase/schema/README.md
+@@ -0,0 +1,109 @@
++# Hand-run schema files
++
++Everything in this folder is run **by hand**, in the Supabase SQL editor.
++Nothing in the repository, and nothing in CI, applies them.
++
++That is worth stating plainly because it is not how `supabase/migrations/`
++works. Migrations are tracked: Supabase records which have run, and
++`supabase db push` applies the rest. These files are not tracked by
++anything, so the only record that a file has been applied is the database
++itself. `supabase/migrations/` stops at **2026-07-06**; every schema
++change since then lives here.
++
++Each file is guarded (`if not exists`, `create or replace`,
++`drop policy if exists`) and is safe to re-run. When in doubt, re-run it
++— that is cheaper than guessing.
++
++## Run order
++
++Order matters where a file builds on an earlier one. Within a group the
++order is free; between groups it is not.
++
++| # | File | Depends on | What it does |
++|---|---|---|---|
++| 1 | `society_visibility.sql` | — | Stops `anon` listing every society; adds `society_public()` |
++| 2 | `manager_role.sql` | — | Adds the `manager` role and its grants |
++| 3 | `registration_lockdown.sql` | — | Removes `WITH CHECK (true)` from `registration_requests` |
++| 4 | `registration_public_close.sql` | **3** | Closes the last anon door; stops a manager creating an admin |
++| 5 | `staff_profiles_biometrics.sql` | — | Staff/house-help profile fields; fingerprint templates |
++| 6 | `biometric_terminals.sql` | **5** | eSSL/ZKTeco push terminals; `device_punches` |
++| 7 | `device_pin_on_staff.sql` | **6** | Moves the device PIN onto the person's record |
++| 8 | `ev_charging.sql` | — | EV chargers, sessions, UPI payment matching |
++| 9 | `device_push_tokens.sql` | — | Push token table (see the note below) |
++
++`registration_public_close.sql` **fixes a privilege escalation shipped by
++`registration_lockdown.sql`**. If 3 has been run and 4 has not, a manager
++can create an admin account and read its temporary password. Check that
++one first.
++
++## Which of these have actually been run?
++
++Paste this into the SQL editor. It reports one row per file.
++
++```sql
++with checks(ord, item, present) as (
++  values
++    (1, 'society_visibility.sql',
++        to_regprocedure('public.society_public(text,uuid)') is not null),
++    (2, 'manager_role.sql',
++        to_regprocedure('public.is_manager(uuid)') is not null),
++    (3, 'registration lockdown + public_close (3 then 4)',
++        to_regprocedure('public.has_role_text(uuid,text)') is not null
++        and to_regprocedure('public.is_committee(uuid)') is null
++        and not exists (select 1 from pg_policies
++                         where schemaname = 'public'
++                           and tablename  = 'registration_requests'
++                           and policyname = 'Anyone can submit registration request')),
++    (5, 'staff_profiles_biometrics.sql',
++        to_regclass('public.fingerprint_enrollments') is not null),
++    (6, 'biometric_terminals.sql',
++        to_regclass('public.biometric_devices') is not null),
++    (7, 'device_pin_on_staff.sql',
++        exists (select 1 from information_schema.columns
++                 where table_schema = 'public' and table_name = 'staff_members'
++                   and column_name = 'device_pin')),
++    (8, 'ev_charging.sql',
++        to_regclass('public.ev_sessions') is not null),
++    (9, 'device_push_tokens.sql',
++        to_regclass('public.device_push_tokens') is not null)
++)
++select ord, item, case when present then 'applied' else 'NOT APPLIED' end as status
++  from checks order by ord;
++```
++
++Each test looks for an object the file creates and nothing else creates,
++so a `NOT APPLIED` row means that file has genuinely not run. The reverse
++is weaker: a file half-applied by an editor error would still report
++`applied`, since the check cannot see which individual statements failed.
++If a row looks wrong, re-run the file and read the editor's output.
++
++**Files 3 and 4 are checked as one row, on purpose.** File 4 replaces
++every object file 3 created — it drops `is_committee()`, replaces the
++insert policy and replaces the trigger function — so once 4 has run there
++is nothing left that distinguishes "3 then 4" from "4 alone", and nothing
++that needs to. The row is also an *absence* test (`is_committee()` gone,
++the old permissive policy gone) because those two files mainly remove
++things. A `NOT APPLIED` here is the single most important result in the
++table: it means either the public registration hole or the
++manager-to-admin escalation is still open.
++
++## About `device_push_tokens.sql`
++
++Nothing in this project sends a push notification. `usePushNotifications`
++is mounted on the resident and guard dashboards and writes a token to this
++table, and `send-push-notification` can deliver one, but **no trigger, no
++page and no function ever calls it** — the table collects tokens that
++nothing reads.
++
++So running this file is optional today. It is here because the table is
++referenced by three places in the code and was defined nowhere, which
++meant nobody could tell whether those calls were working or failing
++silently. If push notifications get wired up, run it first.
++
++## Adding a new one
++
++Prefer `supabase/migrations/` for anything new. These files are here
++because they were written against a live database under time pressure,
++not because hand-running SQL is the better pattern. A migration is
++tracked, ordered, and applied by CI; a file in this folder is a note that
++somebody has to remember to act on.
+diff --git a/tailwind.config.ts b/tailwind.config.ts
+index f3b0a7d..1ae53d0 100644
+--- a/tailwind.config.ts
++++ b/tailwind.config.ts
+@@ -1,4 +1,9 @@
+ import type { Config } from "tailwindcss";
++// Imported rather than require()d: this file is an ES module (it uses
++// `export default`), so mixing in require() was both a lint error and a
++// thing that only worked because the config is transpiled before it
++// runs. The package ships its own index.d.ts, so this is typed.
++import tailwindcssAnimate from "tailwindcss-animate";
+ 
+ export default {
+   darkMode: ["class"],
+@@ -92,5 +97,5 @@ export default {
+       },
+     },
+   },
+-  plugins: [require("tailwindcss-animate")],
++  plugins: [tailwindcssAnimate],
+ } satisfies Config;
+-- 
+2.43.0
+

@@ -104,13 +104,34 @@ export interface LocalBridgeConfig {
   statusPath: string;       // e.g. /status
 }
 
+/**
+ * What the local scanner bridge sends back.
+ *
+ * Every field is optional because this is a third-party service on
+ * 127.0.0.1 whose shape this code does not control — a different
+ * scanner vendor's bridge may omit any of them. The call sites already
+ * coerce with String()/Number() and check for absence, so declaring
+ * the fields loses none of that caution; it only replaces `any`, which
+ * silently switched type checking off for every one of those reads.
+ */
+interface BridgeResponse {
+  template?: string;
+  format?: string;
+  quality?: number;
+  device?: string;
+  matchId?: string;
+  score?: number;
+  /** Anything else the bridge chooses to send. */
+  [key: string]: unknown;
+}
+
 export class LocalBridgeDriver implements FingerprintDriver {
   constructor(private readonly cfg: LocalBridgeConfig) {}
 
   get id() { return this.cfg.id; }
   get label() { return this.cfg.label; }
 
-  private async post(path: string, body: unknown, timeoutMs: number): Promise<any> {
+  private async post(path: string, body: unknown, timeoutMs: number): Promise<BridgeResponse> {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {

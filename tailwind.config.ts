@@ -1,4 +1,9 @@
 import type { Config } from "tailwindcss";
+// Imported rather than require()d: this file is an ES module (it uses
+// `export default`), so mixing in require() was both a lint error and a
+// thing that only worked because the config is transpiled before it
+// runs. The package ships its own index.d.ts, so this is typed.
+import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
   darkMode: ["class"],
@@ -92,5 +97,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 } satisfies Config;

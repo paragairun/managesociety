@@ -1,4 +1,14 @@
-project_id = "csiisydegdrmvvbaqifw"
+# The live project. This said "csiisydegdrmvvbaqifw" — a project this app
+# has not used for a long time — which was harmless in CI and dangerous
+# locally: deploy-edge-functions.yml runs `supabase link --project-ref`
+# from a secret and overwrites this value, so the pipeline was always
+# right, but anyone running `supabase functions deploy` or
+# `supabase db push` on their own machine without linking first was
+# pointed at the wrong project.
+#
+# Not a secret. The project ref is the subdomain of the Supabase URL,
+# which ships inside the JavaScript bundle by design — see .env.
+project_id = "lfmwrdtzyuveyvkfbsjn"
 
 # ── Edge function settings ──
 # Every function verifies a Supabase JWT by default. A biometric terminal

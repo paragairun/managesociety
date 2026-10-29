@@ -36,20 +36,36 @@ import AmenitiesSetup from "@/components/AmenitiesSetup";
 import AmenityBookingsAdmin from "@/components/AmenityBookingsAdmin";
 import AdminHome from "@/components/AdminHome";
 import EvChargingAdmin from "@/components/EvChargingAdmin";
+import { can, type AppRole, type Capability } from "@/lib/permissions";
 
 type Vehicle = Tables<"vehicles">;
 type EntryLog = Tables<"entry_logs">;
 type ResidentOption = { user_id: string; display_name: string; flats: { wing: string; flat_number: string }[] };
 
-const NAV: NavItem[] = [
+/**
+ * The sidebar, with the capability each entry needs.
+ *
+ * `requires` is omitted for Home and My Profile, which everyone who
+ * gets through the route guard may see. Everything else names a
+ * capability from src/lib/permissions.ts, so adding a section forces
+ * the author to say who it is for instead of silently granting it to
+ * every role that can open this panel.
+ *
+ * A manager passes every test below — they are denied only
+ * members.edit, members.delete and admins.edit, which are controls
+ * inside the Users section rather than the section itself. That is the
+ * intended outcome, not an oversight: a manager approving a booking
+ * needs to look a resident up. The restriction lives in UserRegistry.
+ */
+const NAV: (NavItem & { requires?: Capability })[] = [
   { id: "home", title: "Home", icon: Home },
-  { id: "stats", title: "Statistics", icon: BarChart3 },
-  { id: "vehicle-management", title: "Vehicle Management", icon: Car },
-  { id: "users", title: "Users", icon: Users },
-  { id: "staff", title: "Staff & House Helps", icon: Users },
-  { id: "amenity-management", title: "Amenity Management", icon: Sparkles },
-  { id: "accounts-maintenance", title: "Accounts and Maintenance", icon: Wallet },
-  { id: "ev-charging", title: "EV Charging", icon: Zap },
+  { id: "stats", title: "Statistics", icon: BarChart3, requires: "stats.view" },
+  { id: "vehicle-management", title: "Vehicle Management", icon: Car, requires: "vehicles.manage" },
+  { id: "users", title: "Users", icon: Users, requires: "members.view" },
+  { id: "staff", title: "Staff & House Helps", icon: Users, requires: "staff.manage" },
+  { id: "amenity-management", title: "Amenity Management", icon: Sparkles, requires: "amenities.manage" },
+  { id: "accounts-maintenance", title: "Accounts and Maintenance", icon: Wallet, requires: "billing.manage" },
+  { id: "ev-charging", title: "EV Charging", icon: Zap, requires: "ev.manage" },
   { id: "profile", title: "My Profile", icon: User },
 ];
 
@@ -72,7 +88,17 @@ const AdminPanel = () => {
   const [vehiclesExpanded, setVehiclesExpanded] = useState(false);
   const [registrySearchQuery, setRegistrySearchQuery] = useState("");
   const { toast } = useToast();
-  const { signOut, societyId, societyName, societySlug } = useAuth();
+  const { signOut, societyId, societyName, societySlug, roles } = useAuth();
+
+  // Only the sections this person's role actually grants. Strips the
+  // `requires` key as well, so DashboardShell keeps taking a plain
+  // NavItem and knows nothing about capabilities.
+  const navItems: NavItem[] = useMemo(
+    () =>
+      NAV.filter((item) => !item.requires || can(roles as AppRole[], item.requires))
+        .map(({ id, title, icon }) => ({ id, title, icon })),
+    [roles],
+  );
   const navigate = useNavigate();
   const adminLoginPath = societySlug ? `/${societySlug}/admin` : "/admin";
   const handleSignOut = async () => { await signOut(); navigate(adminLoginPath, { replace: true }); };
@@ -570,7 +596,7 @@ const AdminPanel = () => {
       brandTitle="Admin Panel"
       brandSubtitle={societyName ?? "Your Society"}
       groupLabel="Management"
-      items={NAV}
+      items={navItems}
       activeId={activeView}
       onSelect={setActiveView}
       onSignOut={handleSignOut}
