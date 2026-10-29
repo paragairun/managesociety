@@ -1,9 +1,0 @@
-{
-	"appId": "in.managesociety.resident",
-	"appName": "ManageSociety Resident",
-	"webDir": "www",
-	"server": {
-		"url": "https://managesociety.in/resident?utm_source=android_app&utm_medium=app",
-		"cleartext": false
-	}
-}

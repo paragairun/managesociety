@@ -1,9 +1,0 @@
-{
-	"appId": "in.managesociety.guard",
-	"appName": "ManageSociety Guard",
-	"webDir": "www",
-	"server": {
-		"url": "https://managesociety.in/guard?utm_source=android_app&utm_medium=app",
-		"cleartext": false
-	}
-}
