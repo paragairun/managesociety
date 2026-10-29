@@ -790,9 +790,20 @@ const ResidentPortal = () => {
         />
       )}
       {activeView === "guest" && renderGuest()}
-      {activeView === "deliveries" && (
-      <ResidentDeliveryApprovals onPendingCountChange={setPendingDeliveries} />
-      )}
+      {/* MOUNTED ON EVERY TAB, shown only on this one.
+          It used to be rendered inside `activeView === "deliveries" &&`,
+          which meant the component — and with it the polling, the
+          ringtone and the pending count — only existed while the
+          resident was already looking at the Deliveries tab. A resident
+          sitting on Home, which is where they land, was never alerted
+          at all: no ring, no toast, and the "Deliveries (n)" badge that
+          would have sent them to the tab was itself only computed by
+          the component that the badge was supposed to lead them to.
+          The alert for a delivery has to outlive the screen that shows
+          it, so it stays mounted and is hidden with CSS instead. */}
+      <div className={activeView === "deliveries" ? undefined : "hidden"}>
+        <ResidentDeliveryApprovals onPendingCountChange={setPendingDeliveries} />
+      </div>
       {activeView === "dues" && <MyDues residentFlats={flats} formatFlat={formatFlat} />}
       {activeView === "amenities" && <AmenityBooking residentFlats={flats} />}
       {activeView === "vehicles" && (

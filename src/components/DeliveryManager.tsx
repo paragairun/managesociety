@@ -90,9 +90,25 @@ const DeliveryManager = ({ autoOpenTrigger }: DeliveryManagerProps = {}) => {
 
   useEffect(() => {
     void loadVisits(true);
+  }, [loadVisits]);
+
+  // The background refresh PAUSES while the registration form is open.
+  //
+  // This is why the keyboard kept closing on the guard. Every 10
+  // seconds this refetched and called setVisits, re-rendering the list
+  // behind the dialog. On Android a re-render that changes the page's
+  // layout while the soft keyboard is up makes the WebView dismiss the
+  // keyboard — so a guard typing a 10-digit mobile number was thrown
+  // out roughly every other digit and had to tap the field again.
+  //
+  // Nothing is lost by pausing: the list is read-only while the form is
+  // open, and it refreshes the moment the dialog closes, which is also
+  // when a new row has just been added.
+  useEffect(() => {
+    if (showForm) return;
     const interval = window.setInterval(() => void loadVisits(true), 10000);
     return () => window.clearInterval(interval);
-  }, [loadVisits]);
+  }, [loadVisits, showForm]);
 
   // Camera
   const startCamera = async () => {
@@ -287,16 +303,45 @@ const DeliveryManager = ({ autoOpenTrigger }: DeliveryManagerProps = {}) => {
               )}
             </div>
 
-            {/* Mobile */}
+            {/* Mobile
+                autoComplete="off" with a name the browser does not
+                recognise as a standard field. Without it, Chrome offers
+                its saved-value dropdown over the field — those are the
+                "existing numbers" that appeared — and on Android that
+                dropdown opening and closing fights the soft keyboard
+                for the same screen space. A gate terminal is shared by
+                every guard on every shift, so the browser remembering
+                what the last one typed is wrong regardless of the
+                keyboard. */}
             <div className="space-y-1">
-              <Label>Mobile Number *</Label>
-              <Input inputMode="tel" value={form.mobile} onChange={(e) => setForm((p) => ({ ...p, mobile: e.target.value.replace(/\D/g, "").slice(0, 10) }))} placeholder="98765 43210" />
+              <Label htmlFor="delivery-mobile">Mobile Number *</Label>
+              <Input
+                id="delivery-mobile"
+                name="agent-contact-digits"
+                inputMode="numeric"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                value={form.mobile}
+                onChange={(e) => setForm((p) => ({ ...p, mobile: e.target.value.replace(/\D/g, "").slice(0, 10) }))}
+                placeholder="98765 43210"
+              />
             </div>
 
-            {/* Agent name */}
+            {/* Agent name — same treatment: a saved-name dropdown over
+                this field has the identical effect one row down. */}
             <div className="space-y-1">
-              <Label>Agent Name (optional)</Label>
-              <Input value={form.agent_name} onChange={(e) => setForm((p) => ({ ...p, agent_name: e.target.value }))} placeholder="Rajan, delivery agent, etc." />
+              <Label htmlFor="delivery-agent-name">Agent Name (optional)</Label>
+              <Input
+                id="delivery-agent-name"
+                name="agent-person-label"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                value={form.agent_name}
+                onChange={(e) => setForm((p) => ({ ...p, agent_name: e.target.value }))}
+                placeholder="Rajan, delivery agent, etc."
+              />
             </div>
 
             {/* Delivery type */}

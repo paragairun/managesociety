@@ -35,19 +35,67 @@ class RingtonePlayer {
   private timeoutId: number | null = null;
   private playing = false;
 
-  private ensureContext() {
-    if (!this.ctx) {
-      const AudioCtor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AudioCtor();
+  /**
+   * The context used for playback, created once and resumed if the
+   * browser has suspended it. Returns null when it could not be put
+   * into a running state, which is what happens when there has been no
+   * user gesture yet.
+   *
+   * Async on purpose. resume() returns a promise, and scheduling
+   * oscillators against a context that is still suspended produces
+   * silence: currentTime does not advance while suspended, so every
+   * note is scheduled into a past that never arrives.
+   */
+  private async ensureContext(): Promise<AudioContext | null> {
+    try {
+      if (!this.ctx) {
+        const AudioCtor = window.AudioContext
+          || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioCtor) return null;
+        this.ctx = new AudioCtor();
+      }
+      if (this.ctx.state === "suspended") await this.ctx.resume();
+      return this.ctx.state === "running" ? this.ctx : null;
+    } catch {
+      return null;
     }
-    if (this.ctx.state === "suspended") void this.ctx.resume();
-    return this.ctx;
+  }
+
+  /**
+   * Call from a real user gesture to make later automatic playback
+   * possible.
+   *
+   * THIS IS THE FIX. The previous version built a brand new
+   * AudioContext on first tap, resumed it, and immediately closed it
+   * again — warming up an object it then threw away. The context that
+   * actually plays the ring was still created later, at the moment a
+   * delivery arrived, with no gesture anywhere near it. It therefore
+   * started suspended, resume() was refused, and the resident heard
+   * nothing. Unlocking has to happen on the very context that will
+   * play, and it must stay open.
+   */
+  unlock() {
+    void this.ensureContext();
   }
 
   /** Plays one "ring-ring... pause" cycle, classic phone ring pattern (~3.5s) */
-  private playCycle() {
+  private async playCycle() {
     if (!this.playing) return;
-    const ctx = this.ensureContext();
+
+    const ctx = await this.ensureContext();
+    if (!ctx) {
+      // No gesture yet, so audio is still blocked. Keep the cycle alive
+      // rather than giving up: the moment the resident touches the
+      // screen the next tick will be audible.
+      this.timeoutId = window.setTimeout(() => void this.playCycle(), 3500);
+      return;
+    }
+
+    // Re-checked after the await: stop() may have been called while the
+    // context was resuming, and scheduling now would ring after the
+    // delivery was already dealt with.
+    if (!this.playing) return;
+
     const now = ctx.currentTime;
 
     // Two-tone "ring ring" (like a classic phone), twice, then a pause
@@ -74,13 +122,13 @@ class RingtonePlayer {
     ringTone(now, 1.0);
     ringTone(now + 1.4, 1.0);
 
-    this.timeoutId = window.setTimeout(() => this.playCycle(), 3500);
+    this.timeoutId = window.setTimeout(() => void this.playCycle(), 3500);
   }
 
   start() {
     if (this.playing) return;
     this.playing = true;
-    this.playCycle();
+    void this.playCycle();
   }
 
   stop() {
@@ -99,17 +147,18 @@ const ringtone = new RingtonePlayer();
 // so the ringtone can play automatically once a delivery notification arrives.
 if (typeof document !== "undefined") {
   const unlockAudio = () => {
-    try {
-      const AudioCtor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new AudioCtor();
-      if (ctx.state === "suspended") void ctx.resume();
-      void ctx.close();
-    } catch { /* ignore */ }
-    document.removeEventListener("click", unlockAudio);
+    ringtone.unlock();
+    document.removeEventListener("pointerdown", unlockAudio);
     document.removeEventListener("touchstart", unlockAudio);
+    document.removeEventListener("keydown", unlockAudio);
   };
-  document.addEventListener("click", unlockAudio, { once: true });
-  document.addEventListener("touchstart", unlockAudio, { once: true });
+  // pointerdown rather than click: it fires at the start of the tap, so
+  // the context is already running by the time anything else happens.
+  // All three are removed together — { once: true } on each would leave
+  // the other two armed after the first one fired.
+  document.addEventListener("pointerdown", unlockAudio);
+  document.addEventListener("touchstart", unlockAudio);
+  document.addEventListener("keydown", unlockAudio);
 }
 
 const ResidentDeliveryApprovals = ({ onPendingCountChange }: ResidentDeliveryApprovalsProps) => {
