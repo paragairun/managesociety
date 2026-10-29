@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "ManageSociety Guard",
+    "slug": "managesociety-guard",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "msguard",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#06ACEA"
+    },
+    "android": {
+      "package": "in.managesociety.guard",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#06ACEA"
+      },
+      "googleServicesFile": "../../mobile-guard/android/app/google-services.json",
+      "permissions": [
+        "CAMERA",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "in.managesociety.guard",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Scanning visitor, vehicle and staff QR codes at the gate."
+      }
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Scanning visitor, vehicle and staff QR codes at the gate."
+        }
+      ],
+      "expo-notifications"
+    ]
+  }
+}
