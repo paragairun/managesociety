@@ -110,7 +110,40 @@ Apple Developer Program membership.
 
 ## Push notifications
 
-Wired but inert. Tokens are collected into `device_push_tokens`, and
-`send-push-notification` can deliver through FCM, but **nothing calls it**
-— no trigger, no page, no function. Until something does, the Firebase
-dependency in the Android apps buys nothing.
+Android works end to end. iOS registers but cannot be delivered to until
+an APNs key exists, which needs a paid Apple Developer account.
+
+A table change queues a message in `notification_events`; the first
+message in a transaction asks the `send-push-notification` Edge Function
+to drain the outbox; the function sends each one through FCM and writes
+the result back onto the row. The outbox means a 200-flat billing run
+makes one HTTP call rather than 200, failures are visible as rows that
+stay pending rather than vanishing, and "was the resident actually told?"
+has an answer.
+
+Twenty-one event types across twelve triggers, in every direction:
+
+| Direction | Events |
+|---|---|
+| Resident → committee | vehicle request raised, amenity booking raised, EV payment awaiting confirmation |
+| Committee → resident | vehicle request reviewed, booking reviewed, bill issued, bill overdue, payment recorded, EV session authorised / started / finished / failed |
+| Gate → resident | visitor at the gate, delivery at the gate, house help arrived / left |
+| Resident → guard | visitor approved or denied, delivery approved or refused |
+| Guard → committee | unregistered vehicle logged at the gate |
+| Committee → guard | boom barrier switched on or off, staff or house help issued a gate QR |
+
+Who receives what is decided in SQL (`notify_admins`, `notify_guards`,
+`notify_flat`), never in the client. The person who caused an event is
+never notified about it. Any society can switch an event off:
+
+```sql
+insert into public.notification_preferences (society_id, event_key, enabled)
+values ('<society-id>', 'staff.qr_issued', false)
+on conflict (society_id, event_key) do update set enabled = false;
+```
+
+Setup, a health check and a one-line way to send yourself a test
+notification are in `supabase/schema/push_notifications.sql` section 9.
+Note that `send-push-notification` only reaches the live site once the
+**Deploy Supabase Edge Functions** workflow has run — pushing to `main`
+deploys the website, not the functions.

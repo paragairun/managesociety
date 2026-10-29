@@ -106,12 +106,6 @@ const ResidentPortal = () => {
   const { toast } = useToast();
   const { signOut, user, societyId, societyName, societySlug } = useAuth();
 
-  // Registers this device for push, but only inside the iOS or Android
-  // shell — in a browser tab the hook returns immediately. It was
-  // written months ago and never called from anywhere, so no device has
-  // ever registered a token and send-push-notification has had nothing
-  // to send to. This is the call that was missing.
-  usePushNotifications(user?.id);
   const navigate = useNavigate();
   const residentLoginPath = societySlug ? `/${societySlug}/resident` : "/resident";
   const { formatFlat } = useSocietyStructure(societyId);
@@ -122,6 +116,23 @@ const ResidentPortal = () => {
       ? { ...item, title: `Deliveries (${pendingDeliveries})` }
       : item
   );
+
+  // Push, for the role that receives the most of it: a visitor at the
+  // gate, a delivery waiting, a bill issued, a request answered.
+  //
+  // A no-op in a browser tab. Mounted after NAV so onOpen can check
+  // against the sections THIS resident actually has — a child account
+  // has no "helps" section, and selecting a view that does not render
+  // would leave a blank page with a working sidebar.
+  usePushNotifications(user?.id, {
+    role: "resident",
+    onOpen: ({ view }) => {
+      if (NAV.some((item) => item.id === view)) setActiveView(view);
+    },
+    // Android hands a notification that arrives while the app is open
+    // to the app instead of the tray, so without this it is invisible.
+    onForeground: ({ title, body }) => toast({ title, description: body }),
+  });
 
   // Track if we've done the initial load to avoid full-screen spinner on revisits
   const initialLoadDone = useRef(false);

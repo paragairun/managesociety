@@ -37,6 +37,7 @@ import AmenityBookingsAdmin from "@/components/AmenityBookingsAdmin";
 import AdminHome from "@/components/AdminHome";
 import EvChargingAdmin from "@/components/EvChargingAdmin";
 import { can, type AppRole, type Capability } from "@/lib/permissions";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 type Vehicle = Tables<"vehicles">;
 type EntryLog = Tables<"entry_logs">;
@@ -88,7 +89,20 @@ const AdminPanel = () => {
   const [vehiclesExpanded, setVehiclesExpanded] = useState(false);
   const [registrySearchQuery, setRegistrySearchQuery] = useState("");
   const { toast } = useToast();
-  const { signOut, societyId, societyName, societySlug, roles } = useAuth();
+  const { signOut, user, societyId, societyName, societySlug, roles } = useAuth();
+
+  // The admin dashboard never registered for push at all — the hook
+  // existed and was mounted on the resident and guard dashboards only,
+  // so a committee member could not be told about the approvals
+  // waiting for them, which is most of what this screen is for.
+  //
+  // A manager passes "admin" because they use this dashboard; there is
+  // no separate manager view to route to.
+  usePushNotifications(user?.id, {
+    role: "admin",
+    onOpen: ({ view }) => setActiveView(view),
+    onForeground: ({ title, body }) => toast({ title, description: body }),
+  });
 
   // Only the sections this person's role actually grants. Strips the
   // `requires` key as well, so DashboardShell keeps taking a plain

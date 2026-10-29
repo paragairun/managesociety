@@ -29,7 +29,8 @@ order is free; between groups it is not.
 | 6 | `biometric_terminals.sql` | **5** | eSSL/ZKTeco push terminals; `device_punches` |
 | 7 | `device_pin_on_staff.sql` | **6** | Moves the device PIN onto the person's record |
 | 8 | `ev_charging.sql` | — | EV chargers, sessions, UPI payment matching |
-| 9 | `device_push_tokens.sql` | — | Push token table (see the note below) |
+| 9 | `device_push_tokens.sql` | — | One row per device that can receive push |
+| 10 | `push_notifications.sql` | **9**, and 8 for the EV events | The outbox, the recipient rules, and 12 triggers covering 21 event types |
 
 `registration_public_close.sql` **fixes a privilege escalation shipped by
 `registration_lockdown.sql`**. If 3 has been run and 4 has not, a manager
@@ -65,7 +66,10 @@ with checks(ord, item, present) as (
     (8, 'ev_charging.sql',
         to_regclass('public.ev_sessions') is not null),
     (9, 'device_push_tokens.sql',
-        to_regclass('public.device_push_tokens') is not null)
+        to_regclass('public.device_push_tokens') is not null),
+    (10, 'push_notifications.sql',
+        to_regclass('public.notification_events') is not null
+        and to_regprocedure('public.claim_notifications(integer)') is not null)
 )
 select ord, item, case when present then 'applied' else 'NOT APPLIED' end as status
   from checks order by ord;
@@ -87,18 +91,30 @@ things. A `NOT APPLIED` here is the single most important result in the
 table: it means either the public registration hole or the
 manager-to-admin escalation is still open.
 
-## About `device_push_tokens.sql`
+## Push notifications (files 9 and 10)
 
-Nothing in this project sends a push notification. `usePushNotifications`
-is mounted on the resident and guard dashboards and writes a token to this
-table, and `send-push-notification` can deliver one, but **no trigger, no
-page and no function ever calls it** — the table collects tokens that
-nothing reads.
+These two go together and need two secrets that are deliberately not in
+the repository. `push_notifications.sql` section 9 has the exact steps;
+in short:
 
-So running this file is optional today. It is here because the table is
-referenced by three places in the code and was defined nowhere, which
-meant nobody could tell whether those calls were working or failing
-silently. If push notifications get wired up, run it first.
+1. The **service role key**, so Postgres may call the Edge Function —
+   either `select vault.create_secret('<key>', 'service_role_key');` or
+   `alter database postgres set app.settings.service_role_key = '<key>';`
+2. The **Firebase service account JSON**, as an Edge Function secret
+   named `FCM_SERVICE_ACCOUNT_JSON`.
+
+Then `select * from public.notification_health();` reports whether both
+are in place, how many devices are registered, and whether anything is
+stuck.
+
+Without either secret nothing breaks: messages queue in
+`notification_events` and wait. A resident's booking never fails because
+Firebase is down.
+
+**iOS will not deliver** until an APNs key is uploaded to Firebase, which
+needs a paid Apple Developer account. iOS devices still register and
+their tokens are still stored, so nothing has to change here when that
+account exists.
 
 ## Adding a new one
 

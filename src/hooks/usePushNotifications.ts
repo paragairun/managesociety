@@ -1,29 +1,71 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { supabase } from "@/integrations/supabase/client";
+import { resolvePushTarget, PUSH_CHANNEL, type PushRole, type PushTarget } from "@/lib/pushRouting";
 
 /**
- * Registers this device for push notifications when the app is running
- * inside a native wrapper (Capacitor), on iOS or Android -- a no-op in a
- * regular browser tab, since there's no native push channel there.
+ * Push notifications for one dashboard.
  *
- * Capacitor.isNativePlatform() is the guard that makes this safe to call
- * unconditionally: in a browser it returns false and the effect does
- * nothing, so the same React build serves the website and both apps.
+ * Does four things:
+ *   1. asks for permission and registers the device with FCM,
+ *   2. stores the resulting token against the signed-in user so the
+ *      send-push-notification function can find it,
+ *   3. shows something when a notification arrives while the app is
+ *      open — Android delivers those silently to the app instead of to
+ *      the tray, so without this they vanish,
+ *   4. opens the right section when one is tapped.
  *
- * On success, upserts the FCM device token against the current user so the
- * send-push-notification edge function can look it up later. Call this once
- * per dashboard, after the user is confirmed logged in (needs a real user id
- * to attach the token to).
+ * A no-op in a browser tab: Capacitor.isNativePlatform() is false
+ * there, so the same React build serves the website and both apps.
+ * Web push would need a service worker and a VAPID key, which is a
+ * separate piece of work.
+ *
+ * WHAT HAPPENS IN THE BACKGROUND is not this hook's business. Android
+ * renders tray notifications from the FCM payload itself, so they
+ * arrive whether or not the app is running — which is the entire point
+ * and the reason the Edge Function sends a `notification` block rather
+ * than a data-only message.
  */
-export function usePushNotifications(userId: string | undefined) {
+export interface PushOptions {
+  /**
+   * Which dashboard this is, so a payload meant for another role can be
+   * ignored. A manager passes "admin": they use the admin dashboard.
+   */
+  role?: PushRole;
+  /** Select a section. Called on tap, and only for a valid target. */
+  onOpen?: (target: PushTarget) => void;
+  /** Show a foreground notification however this dashboard prefers. */
+  onForeground?: (notification: { title: string; body: string; target: PushTarget | null }) => void;
+}
+
+export function usePushNotifications(userId: string | undefined, options: PushOptions = {}) {
+  // Held in a ref and read inside the listeners rather than captured.
+  // The callbacks are usually inline arrow functions, so a new object
+  // arrives on every render; depending on them would tear down and
+  // re-register the FCM listeners several times a second.
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
   useEffect(() => {
     if (!userId || !Capacitor.isNativePlatform()) return;
 
     let cancelled = false;
 
     const setup = async () => {
+      // Android 8+ takes sound and importance from the channel, so a
+      // message aimed at a channel the app never created lands in a
+      // system default with no sound and no banner. Created before
+      // registering, so the first notification cannot beat it.
+      if (Capacitor.getPlatform() === "android") {
+        try {
+          await PushNotifications.createChannel(PUSH_CHANNEL);
+        } catch (err) {
+          // Not fatal: notifications still arrive, just quietly.
+          console.warn("Could not create the notification channel:", err);
+        }
+      }
+
       const permStatus = await PushNotifications.checkPermissions();
       let granted = permStatus.receive === "granted";
 
@@ -44,14 +86,14 @@ export function usePushNotifications(userId: string | undefined) {
       // the only shell and silently wrong the moment an iPhone
       // registered — send-push-notification would have had no way to
       // tell APNs tokens from FCM ones.
+      //
       // device_push_tokens is absent from the generated types.ts, which
       // is behind the schema, so `.from()` narrows it to `never` and
       // every field below becomes a type error. Cast the client rather
       // than the row, the same way evDb.ts and societyLookup.ts do:
       // regenerating types.ts then deletes this and nothing else.
       //
-      // The table's definition is supabase/schema/device_push_tokens.sql
-      // — it had no migration at all until that file.
+      // The table's definition is supabase/schema/device_push_tokens.sql.
       const db = supabase as unknown as {
         from: (table: string) => {
           upsert: (
@@ -63,7 +105,7 @@ export function usePushNotifications(userId: string | undefined) {
 
       const { error } = await db.from("device_push_tokens").upsert(
         { user_id: userId, token: token.value, platform: Capacitor.getPlatform() },
-        { onConflict: "user_id,token" }
+        { onConflict: "user_id,token" },
       );
       if (error) console.error("Failed to save push token:", error);
     });
@@ -72,12 +114,46 @@ export function usePushNotifications(userId: string | undefined) {
       console.error("Push registration error:", err);
     });
 
+    // Arrives while the app is in the FOREGROUND. Android hands these
+    // to the app rather than the system tray, so a notification that
+    // lands while somebody is looking at the dashboard is invisible
+    // unless the app shows it itself.
+    const receivedListener = PushNotifications.addListener(
+      "pushNotificationReceived",
+      (notification) => {
+        const { role, onForeground } = optionsRef.current;
+        if (!onForeground) return;
+        onForeground({
+          title: notification.title ?? "",
+          body: notification.body ?? "",
+          target: role ? resolvePushTarget(notification.data, role) : null,
+        });
+      },
+    );
+
+    // The notification was tapped, from the tray or the banner.
+    const actionListener = PushNotifications.addListener(
+      "pushNotificationActionPerformed",
+      (action) => {
+        const { role, onOpen } = optionsRef.current;
+        if (!role || !onOpen) return;
+        const target = resolvePushTarget(action.notification.data, role);
+        // Null for a payload naming another role or an unknown view.
+        // Doing nothing leaves the app where it was, which beats
+        // selecting a section that does not exist and rendering blank.
+        if (target) onOpen(target);
+      },
+    );
+
     void setup();
 
     return () => {
       cancelled = true;
       void registrationListener.then((l) => l.remove());
       void errorListener.then((l) => l.remove());
+      void receivedListener.then((l) => l.remove());
+      void actionListener.then((l) => l.remove());
     };
+    // options deliberately absent — see optionsRef above.
   }, [userId]);
 }

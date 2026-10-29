@@ -47,10 +47,17 @@ const GuardDashboard = () => {
   const navigate = useNavigate();
 
   // Registers this device for push inside the iOS or Android shell; a
-  // no-op in a browser tab. Guards are the role push actually matters
-  // for — a visitor waiting at the gate is time-sensitive in a way a
-  // maintenance notice is not.
-  usePushNotifications(user?.id);
+  // no-op in a browser tab. Guards are the role push matters most for:
+  // a resident approving the visitor standing in front of them is
+  // time-critical in a way a maintenance notice is not.
+  usePushNotifications(user?.id, {
+    role: "guard",
+    onOpen: ({ view }) => setActiveView(view),
+    // Android delivers foreground notifications to the app rather than
+    // the tray, so the guard would otherwise see nothing while they
+    // have the dashboard open — which is most of their shift.
+    onForeground: ({ title, body }) => toast({ title, description: body }),
+  });
   const guardLoginPath = societySlug ? `/${societySlug}/guard` : "/guard";
 
   const loadDashboardData = useCallback(async (showLoader = false) => {
