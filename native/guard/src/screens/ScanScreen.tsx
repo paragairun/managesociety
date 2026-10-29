@@ -5,7 +5,7 @@ import {
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useAuth } from "@/auth/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { makeGatePorts } from "@/lib/gatePorts";
+import { makeGatePorts } from "@core/gatePorts";
 import { resolveGateScan, describeOutcome, type GateScanOutcome } from "@core/gateScan";
 import { colors, radius, space, TOUCH, type } from "@/theme";
 
@@ -51,7 +51,7 @@ const ScanScreen = () => {
     setScanning(false);
     setBusy(true);
 
-    const ports = makeGatePorts(societyId, user?.id ?? null);
+    const ports = makeGatePorts(supabase, societyId, user?.id ?? null);
     const result = await resolveGateScan(ports, raw);
 
     setOutcome(result);

@@ -10,11 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StatusBadge from "@/components/StatusBadge";
 import QrScanner from "@/components/QrScanner";
 import FingerprintStatus from "@/components/FingerprintStatus";
-import { logStaffMovement as logMovement } from "@/lib/staffAttendance";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { decodeGuestPass } from "@/lib/guest-pass";
+import { resolveGateScan, describeOutcome } from "@/lib/gateScan";
+import { makeGatePorts } from "@/lib/gatePorts";
 import DashboardShell, { NavItem } from "@/components/DashboardShell";
 import DeliveryManager from "@/components/DeliveryManager";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -22,7 +22,6 @@ import { useBackToHome } from "@/hooks/useBackToHome";
 
 type VisitorRequest = Tables<"visitor_requests">;
 type EntryLog = Tables<"entry_logs">;
-type Vehicle = Tables<"vehicles">;
 
 const NAV: NavItem[] = [
   { id: "home", title: "Home", icon: Home },
@@ -42,7 +41,6 @@ const GuardDashboard = () => {
   const [deliveryFormTrigger, setDeliveryFormTrigger] = useState(0);
   const [visitors, setVisitors] = useState<VisitorRequest[]>([]);
   const [liveVehicles, setLiveVehicles] = useState<EntryLog[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -66,17 +64,19 @@ const GuardDashboard = () => {
 
   const loadDashboardData = useCallback(async (showLoader = false) => {
     if (showLoader) setLoading(true);
-    const [visitorsResult, entriesResult, vehiclesResult] = await Promise.all([
+    // The whole vehicles table used to be fetched here as well, every
+    // five seconds, so that a scan could search it in memory. The scan
+    // now looks a vehicle up by qr_code through makeGatePorts, which is
+    // both correct for a vehicle registered moments ago and one fewer
+    // full-table read per tick on a device that sits at a gate all day.
+    const [visitorsResult, entriesResult] = await Promise.all([
       supabase.from("visitor_requests").select("*").order("created_at", { ascending: false }),
       supabase.from("entry_logs").select("*").is("exit_time", null).order("entry_time", { ascending: false }),
-      supabase.from("vehicles").select("*").order("created_at", { ascending: false }),
     ]);
     if (visitorsResult.error) toast({ title: "Could not load visitor requests", description: visitorsResult.error.message, variant: "destructive" });
     else setVisitors((visitorsResult.data ?? []) as VisitorRequest[]);
     if (entriesResult.error) toast({ title: "Could not load live entries", description: entriesResult.error.message, variant: "destructive" });
     else setLiveVehicles((entriesResult.data ?? []) as EntryLog[]);
-    if (vehiclesResult.error) toast({ title: "Could not load vehicles", description: vehiclesResult.error.message, variant: "destructive" });
-    else setVehicles((vehiclesResult.data ?? []) as Vehicle[]);
     if (showLoader) setLoading(false);
   }, [toast]);
 
@@ -91,125 +91,72 @@ const GuardDashboard = () => {
     navigate(guardLoginPath, { replace: true });
   };
 
-  const handleGuestPassScan = async (rawQr: string) => {
-    const guestPass = decodeGuestPass(rawQr);
-    if (!guestPass) return false;
-    const { data: request, error: requestError } = await supabase
-      .from("visitor_requests").select("*").eq("id", guestPass.request_id).maybeSingle();
-    if (requestError || !request) {
-      setScanResult("❌ Guest QR not found.");
-      toast({ title: "Unknown guest pass", description: requestError?.message ?? "This pass was not found.", variant: "destructive" });
-      return true;
-    }
-    const expectedFlat = `${guestPass.wing}-${guestPass.flat_number}`;
-    const isMatchingPass = request.status !== "rejected" && request.visitor_name === guestPass.visitor_name && request.phone === guestPass.phone && request.vehicle_number === guestPass.vehicle_number && request.flat_number === expectedFlat;
-    if (!isMatchingPass) {
-      setScanResult("❌ Guest QR details do not match the saved pass.");
-      toast({ title: "Invalid guest pass", description: "The scanned QR does not match the saved guest entry.", variant: "destructive" });
-      return true;
-    }
-    if (request.status === "entered" || request.status === "used") {
-      setScanResult("⚠️ This guest QR has already been used and is no longer valid.");
-      toast({ title: "Pass already used", description: `${request.visitor_name}'s pass is single-use and has already been scanned.`, variant: "destructive" });
-      return true;
-    }
-    const { data: claimed, error: claimError } = await supabase
-      .from("visitor_requests").update({ status: "entered" }).eq("id", request.id).eq("status", "guest_pass").select("id").maybeSingle();
-    if (claimError || !claimed) {
-      setScanResult("⚠️ This guest QR has already been used and is no longer valid.");
-      toast({ title: "Pass already used", description: "Single-use pass — already scanned by another guard.", variant: "destructive" });
-      await loadDashboardData(false);
-      return true;
-    }
-    if (!societyId) { toast({ title: "Society not loaded", variant: "destructive" }); return true; }
-    const { error: entryError } = await supabase.from("entry_logs").insert({
-      vehicle_number: request.vehicle_number, flat_number: guestPass.flat_number, wing: guestPass.wing,
-      entry_type: "visitor", owner_name: `${request.visitor_name} (Guest of ${guestPass.owner_name})`,
-      logged_by: user?.id ?? null,
-      society_id: societyId,
-    });
-    if (entryError) {
-      toast({ title: "Could not log guest entry", description: entryError.message, variant: "destructive" });
-      return true;
-    }
-    setScanResult(`✅ ${request.visitor_name} — Guest of ${guestPass.owner_name} — ${guestPass.wing}-${guestPass.flat_number}`);
-    await loadDashboardData(false);
-    toast({ title: "Guest Entry Logged", description: `${request.visitor_name} approved for ${guestPass.wing}-${guestPass.flat_number}` });
-    return true;
-  };
-
-
   /**
-   * QR path for staff / house helps. Delegates to the same shared logger
-   * the always-on fingerprint listener uses, so the entry/exit toggle
-   * cannot drift between the two.
+   * One scan handler, over the shared rule in src/lib/gateScan.ts.
+   *
+   * Replaces three functions that used to live here — a guest-pass
+   * validator, a staff logger and a dispatcher — with a call into the
+   * module the native guard app also uses. What a pass means is now
+   * decided in exactly one tested place rather than once per app.
+   *
+   * THE BUG THIS FIXES
+   * The old dispatcher had no early return after the staff branch. It
+   * logged the entry or exit correctly, then fell through to the
+   * guest-pass check (a "STF-..." string is not JSON, so no match) and
+   * the vehicle lookup (no match either), which overwrote the success
+   * message with "Unknown QR code. Vehicle not registered." and raised
+   * an error toast. Every staff and house-help card scan reported
+   * failure while quietly succeeding.
    */
-  const logStaffMovement = async (
-    member: { id: string; name: string; role: string },
-    category: "society_staff" | "house_help",
-    method: "qr" | "fingerprint",
-  ) => {
-    if (!societyId) { toast({ title: "Society not loaded", variant: "destructive" }); return; }
-    const result = await logMovement(supabase, {
-      societyId,
-      subjectId: member.id,
-      category,
-      loggedBy: user?.id ?? null,
-      method,
-    });
-    if (!result.ok) {
-      toast({ title: "Could not log entry", description: result.error, variant: "destructive" });
-      return;
-    }
-    const icon = result.action === "entry" ? "\u2705 Entry" : "\uD83D\uDEAA Exit";
-    setScanResult(`${icon} — ${member.name} (${member.role})`);
-    toast({
-      title: `${result.action === "entry" ? "Entry" : "Exit"} logged`,
-      description: `${member.name} — ${member.role}`,
-    });
-    setTimeout(() => setScanResult(null), 5000);
-  };
-
-  const handleScan = async (result: string) => {
+  const handleScan = async (raw: string) => {
     setScanning(false);
 
-    // Staff / house help QR codes (STF- or HLP- prefix)
-    if (result.startsWith("STF-") || result.startsWith("HLP-")) {
-      if (!societyId) { toast({ title: "Society not loaded", variant: "destructive" }); return; }
-      const category = result.startsWith("STF-") ? "society_staff" as const : "house_help" as const;
-      const member = category === "society_staff"
-        ? await supabase.from("staff_members").select("id, name, staff_type").eq("qr_code", result).maybeSingle().then((r) => r.data ? { id: r.data.id, name: r.data.name, role: r.data.staff_type } : null)
-        : await supabase.from("house_helps").select("id, name, help_type").eq("qr_code", result).maybeSingle().then((r) => r.data ? { id: r.data.id, name: r.data.name, role: r.data.help_type } : null);
-      if (!member) {
-        setScanResult("❌ Unknown ID card. Not registered.");
-        toast({ title: "Unknown ID card", variant: "destructive" });
-        setTimeout(() => setScanResult(null), 5000);
-        return;
-      }
-      await logStaffMovement(member, category, "qr");
+    if (!societyId) {
+      toast({ title: "Society not loaded", variant: "destructive" });
+      return;
     }
 
-    // Guest pass QR
-    const handledGuestPass = await handleGuestPassScan(result);
-    if (handledGuestPass) { setTimeout(() => setScanResult(null), 5000); return; }
+    const outcome = await resolveGateScan(
+      makeGatePorts(supabase, societyId, user?.id ?? null),
+      raw,
+    );
 
-    // Vehicle QR
-    const vehicle = vehicles.find((v) => v.qr_code === result);
-    if (vehicle) {
-      if (!societyId) { toast({ title: "Society not loaded", variant: "destructive" }); return; }
-      const { error } = await supabase.from("entry_logs").insert({
-        vehicle_number: vehicle.vehicle_number, flat_number: vehicle.flat_number, wing: vehicle.wing,
-        entry_type: "resident", owner_name: vehicle.owner_name, logged_by: user?.id ?? null,
-        society_id: societyId,
-      });
-      if (error) { toast({ title: "Could not log entry", description: error.message, variant: "destructive" }); return; }
-      setScanResult(`✅ ${vehicle.wing}-${vehicle.flat_number} — ${vehicle.vehicle_number}`);
+    const icon =
+      outcome.kind === "staff" ? (outcome.action === "entry" ? "\u2705" : "\uD83D\uDEAA")
+      : outcome.kind === "guest" || outcome.kind === "vehicle" ? "\u2705"
+      : outcome.kind === "error" ? "\u274C"
+      : "\u26A0\uFE0F";
+
+    setScanResult(`${icon} ${describeOutcome(outcome)}`);
+
+    switch (outcome.kind) {
+      case "staff":
+        toast({
+          title: outcome.action === "entry" ? "Entry logged" : "Exit logged",
+          description: `${outcome.name} — ${outcome.role}`,
+        });
+        break;
+      case "guest":
+        toast({
+          title: "Guest entry logged",
+          description: `${outcome.visitorName} approved for ${outcome.flat}`,
+        });
+        break;
+      case "vehicle":
+        toast({ title: "Entry logged", description: describeOutcome(outcome) });
+        break;
+      case "rejected":
+      case "unknown":
+      case "error":
+        toast({ title: "Not logged", description: outcome.message, variant: "destructive" });
+        break;
+    }
+
+    // Only a successful entry changes what the dashboard shows.
+    if (outcome.kind === "staff" || outcome.kind === "guest" || outcome.kind === "vehicle") {
       await loadDashboardData(false);
-      toast({ title: "Entry Logged", description: `${vehicle.wing}-${vehicle.flat_number} — ${vehicle.vehicle_number}` });
-    } else {
-      setScanResult("❌ Unknown QR code. Vehicle not registered.");
-      toast({ title: "Unknown Vehicle", description: "QR code not found in registry.", variant: "destructive" });
     }
+
     setTimeout(() => setScanResult(null), 5000);
   };
 
