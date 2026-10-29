@@ -1,0 +1,219 @@
+name: Build Guard Native App
+
+# Builds an installable .apk of the NATIVE guard app (native/guard -- Expo /
+# React Native), in the cloud, because building an Android app normally needs
+# the Android SDK, Gradle and a JDK installed locally, which this project does
+# not assume you have.
+#
+# This is a different app from mobile-guard/, which is a Capacitor shell that
+# just loads managesociety.in/guard in a WebView. This one is real native code:
+# its screens, camera, lists and navigation are compiled into the app, so a
+# change to the website does NOT change it. Every change needs either a new
+# build here, or a reload from Metro (see "development build" below).
+#
+# ────────────────────────────────────────────────────────────────────────────
+# TWO BUILDS, AND WHICH ONE YOU WANT
+#
+#   development  (default)  Contains no JavaScript. On launch it asks for the
+#                           address of a Metro server and loads the app from
+#                           there, over the internet. Install it once and
+#                           every later code change arrives by restarting
+#                           Metro -- no rebuild, no reinstall, no 15-minute
+#                           wait. Needs `npx expo start --tunnel` running on
+#                           a computer (Node only -- no Android SDK).
+#                           USE THIS WHILE WE ARE STILL FIXING THINGS.
+#
+#   standalone              The JavaScript is compiled in. Runs on its own
+#                           with nothing else switched on, so this is the one
+#                           to hand to a guard at the gate. Rebuild here for
+#                           every change.
+#
+# Pick with the "build" input when you run the workflow by hand.
+#
+# ────────────────────────────────────────────────────────────────────────────
+# BEFORE YOU INSTALL IT: UNINSTALL THE OLD GUARD APP
+#
+# This app deliberately keeps the application id in.managesociety.guard, so
+# that the Firebase registration (google-services.json) and eventually the
+# Play listing carry over to it -- it is meant to replace the Capacitor guard
+# app, not sit beside it. Android will not install two apps with the same id,
+# and these two are signed with different keys, so installing this one over
+# the old one fails with INSTALL_FAILED_UPDATE_INCOMPATIBLE until the old one
+# is uninstalled. Uninstall "ManageSociety Guard" on the test phone first.
+#
+# (To run both side by side instead, the id has to change AND a new Android
+# app has to be registered in the Firebase project, because the Google
+# Services Gradle plugin fails the build when google-services.json has no
+# client for the package it is building.)
+#
+# ────────────────────────────────────────────────────────────────────────────
+# Output: one .apk under the run's "Artifacts" section, at the bottom of the
+# workflow run page. It is a debug-signed build -- fine to install directly
+# via "install from unknown sources", not set up for Play Store distribution
+# (that is build-release-aabs.yml's job, and a later step for this app).
+
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: "Which build to produce"
+        type: choice
+        required: true
+        default: development
+        options:
+          - development
+          - standalone
+  push:
+    branches: [main]
+    paths:
+      - 'native/guard/**'
+      - 'src/lib/**'
+      - '.github/workflows/build-guard-native.yml'
+
+env:
+  APP_DIR: native/guard
+  APP_ID: in.managesociety.guard
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # JDK 17: the version React Native 0.88 and Expo SDK 58 are built
+      # against. The Capacitor workflows use 21, which is fine for them, but
+      # Expo's own Gradle plugins are tested on 17.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v4
+
+      - name: Install dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: npm ci
+
+      # The screens import shared rules from ../../src/lib through Metro's
+      # watchFolders (see metro.config.js). A development build loads its
+      # JavaScript from Metro at runtime so it never reads them, but a
+      # standalone build bundles them in -- and a missing one would surface as
+      # a blank screen on a guard's phone rather than an error here.
+      - name: Check the shared modules the app imports are present
+        run: |
+          set -euo pipefail
+          missing=0
+          for f in gateScan gatePorts visitorFlow visitorFlowPorts deliveries societyStructure staffAttendance; do
+            if [[ ! -f "src/lib/$f.ts" ]]; then
+              echo "::error::src/lib/$f.ts is missing; native/guard imports it as @core/$f"
+              missing=1
+            fi
+          done
+          [[ $missing -eq 0 ]] || exit 1
+          echo "All shared modules present."
+
+      - name: Typecheck
+        working-directory: ${{ env.APP_DIR }}
+        run: npx tsc --noEmit
+
+      # Generates the android/ project from app.json. It is gitignored on
+      # purpose: it is output, regenerated on every run, so app.json stays the
+      # single place the app's name, icon, permissions and package id live.
+      - name: Generate the native Android project
+        working-directory: ${{ env.APP_DIR }}
+        run: npx expo prebuild --platform android --clean
+
+      # Same safety check as build-release-aabs.yml, for the same reason:
+      # renaming the application id breaks push (google-services.json is
+      # registered against it) and would orphan the Play listing. It broke the
+      # Capacitor builds once already, on 2026-10-04.
+      - name: Check the application id did not drift
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          set -euo pipefail
+          FOUND=$(grep applicationId android/app/build.gradle | head -1 | tr -d "\"' " | sed 's/^applicationId//')
+          echo "applicationId = ${FOUND}"
+          if [[ "${FOUND}" != "${APP_ID}" ]]; then
+            echo "::error::applicationId is '${FOUND}', expected '${APP_ID}'. Push notifications are registered against the expected id."
+            exit 1
+          fi
+
+      - name: Confirm Firebase is wired for this package
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          set -euo pipefail
+          GS=android/app/google-services.json
+          if [[ ! -f "$GS" ]]; then
+            echo "::error::google-services.json was not copied into the project. Check the googleServicesFile path in app.json."
+            exit 1
+          fi
+          if ! grep -q "${APP_ID}" "$GS"; then
+            echo "::error::google-services.json has no client for ${APP_ID}; push would not initialise."
+            exit 1
+          fi
+          echo "Firebase client found for ${APP_ID}."
+
+      - name: Build the APK
+        id: build
+        working-directory: ${{ env.APP_DIR }}/android
+        env:
+          # A push-triggered run has no inputs, so it produces the build we
+          # iterate on.
+          BUILD_KIND: ${{ inputs.build || 'development' }}
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          if [[ "${BUILD_KIND}" == "standalone" ]]; then
+            # The release variant is what embeds the JavaScript bundle. Expo's
+            # generated project signs release with the debug keystore unless
+            # you supply your own, so this comes out installable by hand --
+            # which is all a gate phone needs. Play Store signing is a
+            # separate job, as it is for the Capacitor apps.
+            ./gradlew assembleRelease
+            APK=$(find app/build/outputs/apk/release -name '*.apk' | head -1)
+          else
+            ./gradlew assembleDebug
+            APK=$(find app/build/outputs/apk/debug -name '*.apk' | head -1)
+          fi
+          if [[ -z "${APK}" ]]; then
+            echo "::error::Gradle finished but produced no APK."
+            exit 1
+          fi
+          mkdir -p ../artifact
+          cp "${APK}" "../artifact/managesociety-guard-${BUILD_KIND}.apk"
+          ls -lh ../artifact
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: managesociety-guard-native-${{ inputs.build || 'development' }}-apk
+          path: ${{ env.APP_DIR }}/artifact/*.apk
+          if-no-files-found: error
+
+      - name: What to do with it
+        env:
+          BUILD_KIND: ${{ inputs.build || 'development' }}
+        run: |
+          {
+            echo "## ManageSociety Guard (native) — ${BUILD_KIND} build"
+            echo ""
+            echo "Download the APK from **Artifacts** at the bottom of this page."
+            echo ""
+            echo "**Uninstall the existing \"ManageSociety Guard\" app first** — this one"
+            echo "shares its application id (\`${APP_ID}\`) and is signed with a different key."
+            echo ""
+            if [[ "${BUILD_KIND}" == "development" ]]; then
+              echo "This build holds no JavaScript. After installing it:"
+              echo ""
+              echo '1. On your computer: `cd native/guard && npx expo start --tunnel`'
+              echo "2. Open the app on the phone and scan the QR code the terminal prints."
+              echo ""
+              echo "Every later code change is picked up by reloading in the app — no rebuild."
+            else
+              echo "This build runs on its own. Install it and hand the phone to a guard."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
