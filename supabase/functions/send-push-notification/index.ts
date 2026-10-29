@@ -27,11 +27,27 @@ import { z } from "npm:zod@3.25.76";
  * FCM OAuth token.
  *
  * AUTHORISATION
- * Callers must present the service role key (Postgres does, via
- * pg_net) or a JWT belonging to a super admin. An ordinary resident's
- * JWT is refused: this function can send arbitrary text to any user id
- * and bypasses RLS to read device tokens, so it must not be reachable
- * from the app.
+ * Callers must be the service role (Postgres is, via pg_net) or a super
+ * admin. An ordinary resident's JWT is refused: this function can send
+ * arbitrary text to any user id and bypasses RLS to read device tokens,
+ * so it must not be reachable from the app.
+ *
+ * The service role is recognised by the `role` claim in its JWT, not by
+ * comparing the bearer against SUPABASE_SERVICE_ROLE_KEY. The string
+ * comparison was the first implementation and it was wrong: a perfectly
+ * valid service_role JWT taken from the dashboard was rejected with a
+ * bare 401, because the value Supabase injects into the function's
+ * environment is not always byte-identical to the key the dashboard
+ * hands you — and the newer API key system makes that more likely, not
+ * less. A key rotation would have broken it too.
+ *
+ * Trusting the claim is sound here, and is not the same as skipping
+ * verification: verify_jwt is on for this function (supabase/config.toml
+ * turns it off only for essl-push), so the gateway has already checked
+ * the signature against this project's JWT secret before the function
+ * is invoked. An unsigned or foreign token never reaches this code, and
+ * `role` is set by the auth server rather than by the user, so it
+ * cannot be talked up from "authenticated".
  */
 
 const corsHeaders = {
@@ -134,6 +150,30 @@ function stringifyData(data: Record<string, unknown> | null | undefined): Record
  * every future send retries it — a device that uninstalls today would
  * otherwise cost a failed HTTP request on every notification forever.
  */
+/**
+ * The claims of an already-verified JWT.
+ *
+ * No signature check, deliberately: verify_jwt is on for this function,
+ * so the Supabase gateway validated the signature against the project's
+ * JWT secret before this code ran. Re-deriving that here would mean
+ * handling the secret, which is strictly worse. Returns null for
+ * anything that is not a three-part token with a JSON payload — a
+ * `sb_secret_…` style key, for instance, which is not a JWT at all.
+ */
+function jwtClaims(token: string): Record<string, unknown> | null {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    const bytes = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+    const claims = JSON.parse(new TextDecoder().decode(bytes));
+    return claims && typeof claims === "object" ? claims as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
+}
+
 function isDeadToken(status: number, errorBody: string): boolean {
   if (status === 404) return true;
   if (status === 400 && /INVALID_ARGUMENT/.test(errorBody) && /token/i.test(errorBody)) return true;
@@ -156,9 +196,29 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    if (bearer !== serviceRoleKey) {
+    // The service role, by the claim the gateway already verified, or
+    // by an exact match for the non-JWT key formats. Either is enough.
+    const claims = jwtClaims(bearer);
+    const isServiceRole =
+      claims?.role === "service_role" || (bearer === serviceRoleKey && bearer.length > 0);
+
+    if (!isServiceRole) {
+      // Not the service role, so it has to be a super admin's own token.
+      // getUser is the right call here and the wrong one above: a
+      // service_role JWT has no `sub`, so it identifies no user and
+      // would always fail this check however valid it is.
       const { data: { user } } = await adminClient.auth.getUser(bearer);
-      if (!user) return json({ error: "Unauthorized" }, 401);
+      if (!user) {
+        // Says which of the two it was, because "Unauthorized" with no
+        // detail cost an afternoon of guessing once already. Neither
+        // branch reveals anything a caller does not already hold.
+        return json({
+          error: "Unauthorized",
+          detail: claims
+            ? `token role is "${String(claims.role ?? "none")}", need service_role or a super admin`
+            : "bearer is not a recognised token",
+        }, 401);
+      }
       const { data: isSuper } = await adminClient.rpc("has_role", {
         _user_id: user.id,
         _role: "super_admin",
