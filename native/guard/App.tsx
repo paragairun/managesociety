@@ -12,6 +12,9 @@ import { supabase } from "@/lib/supabase";
 import LoginScreen from "@/screens/LoginScreen";
 import HomeScreen from "@/screens/HomeScreen";
 import ScanScreen from "@/screens/ScanScreen";
+import ApprovalsScreen from "@/screens/ApprovalsScreen";
+import LiveInsideScreen from "@/screens/LiveInsideScreen";
+import BarriersScreen from "@/screens/BarriersScreen";
 import { colors, type } from "@/theme";
 
 /**
@@ -104,15 +107,9 @@ const Shell = () => {
         )}
       </Drawer.Screen>
       <Drawer.Screen name="Scan" component={ScanScreen} options={{ title: "Search & Scan" }} />
-      <Drawer.Screen name="Approvals" options={{ title: "Pending Approvals" }}>
-        {() => <Placeholder name="Pending Approvals" />}
-      </Drawer.Screen>
-      <Drawer.Screen name="Live" options={{ title: "Live Inside" }}>
-        {() => <Placeholder name="Live Inside" />}
-      </Drawer.Screen>
-      <Drawer.Screen name="Barriers" options={{ title: "Boom Barriers" }}>
-        {() => <Placeholder name="Boom Barriers" />}
-      </Drawer.Screen>
+      <Drawer.Screen name="Approvals" component={ApprovalsScreen} options={{ title: "Pending Approvals" }} />
+      <Drawer.Screen name="Live" component={LiveInsideScreen} options={{ title: "Live Inside" }} />
+      <Drawer.Screen name="Barriers" component={BarriersScreen} options={{ title: "Boom Barriers" }} />
       <Drawer.Screen name="Deliveries" options={{ title: "Deliveries" }}>
         {() => <Placeholder name="Deliveries" />}
       </Drawer.Screen>

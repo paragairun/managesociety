@@ -15,6 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { resolveGateScan, describeOutcome } from "@/lib/gateScan";
 import { makeGatePorts } from "@/lib/gatePorts";
+import { approveVisitor, rejectVisitor, checkOutEntry, flowFailed, flowWarning } from "@/lib/visitorFlow";
+import { makeVisitorFlowPorts } from "@/lib/visitorFlowPorts";
 import DashboardShell, { NavItem } from "@/components/DashboardShell";
 import DeliveryManager from "@/components/DeliveryManager";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -160,38 +162,71 @@ const GuardDashboard = () => {
     setTimeout(() => setScanResult(null), 5000);
   };
 
+  /**
+   * Approve, reject and check out, over the shared rules in
+   * src/lib/visitorFlow.ts.
+   *
+   * The rule worth sharing is that approving a visitor ALSO writes an
+   * entry log — miss it and the visitor is approved but never appears
+   * in Live Inside, so the gate's count of who is on the premises is
+   * quietly wrong. The native guard app answers the same requests and
+   * must not disagree about what an approval means.
+   *
+   * Note that a failed entry log is a WARNING, not a failure: the
+   * visitor really was approved, and saying otherwise sends the guard
+   * to argue with someone holding a valid approval.
+   */
   const handleApprove = async (id: string) => {
     const visitor = visitors.find((v) => v.id === id);
     if (!visitor) return;
+    if (!societyId) { toast({ title: "Society not loaded", variant: "destructive" }); return; }
+
     setProcessingId(id);
-    const { error: updateError } = await supabase.from("visitor_requests").update({ status: "approved" }).eq("id", id);
-    if (updateError) { setProcessingId(null); toast({ title: "Approval failed", description: updateError.message, variant: "destructive" }); return; }
-    if (!societyId) { setProcessingId(null); toast({ title: "Society not loaded", variant: "destructive" }); return; }
-    const { error: entryError } = await supabase.from("entry_logs").insert({
-      vehicle_number: visitor.vehicle_number, flat_number: visitor.flat_number, wing: "",
-      entry_type: "visitor", owner_name: `${visitor.visitor_name} (Visitor)`, logged_by: user?.id ?? null,
-      society_id: societyId,
-    });
+    const result = await approveVisitor(
+      makeVisitorFlowPorts(supabase, societyId, user?.id ?? null),
+      visitor,
+    );
     setProcessingId(null);
-    if (entryError) { toast({ title: "Approval saved but entry log failed", description: entryError.message, variant: "destructive" }); return; }
+
+    if (flowFailed(result)) {
+      toast({ title: "Approval failed", description: result.error, variant: "destructive" });
+      return;
+    }
+    const warning = flowWarning(result);
+    if (warning) toast({ title: "Approved, with a problem", description: warning, variant: "destructive" });
+
     await loadDashboardData(false);
-    toast({ title: "Visitor Approved", description: visitor?.visitor_name });
+    if (!warning) toast({ title: "Visitor Approved", description: visitor.visitor_name });
   };
 
   const handleReject = async (id: string) => {
+    if (!societyId) { toast({ title: "Society not loaded", variant: "destructive" }); return; }
     setProcessingId(id);
-    const { error } = await supabase.from("visitor_requests").update({ status: "rejected" }).eq("id", id);
+    const result = await rejectVisitor(
+      makeVisitorFlowPorts(supabase, societyId, user?.id ?? null),
+      id,
+    );
     setProcessingId(null);
-    if (error) { toast({ title: "Rejection failed", description: error.message, variant: "destructive" }); return; }
+    if (flowFailed(result)) {
+      toast({ title: "Rejection failed", description: result.error, variant: "destructive" });
+      return;
+    }
     await loadDashboardData(false);
     toast({ title: "Visitor Rejected", variant: "destructive" });
   };
 
   const handleCheckout = async (id: string) => {
+    if (!societyId) { toast({ title: "Society not loaded", variant: "destructive" }); return; }
     setProcessingId(id);
-    const { error } = await supabase.from("entry_logs").update({ exit_time: new Date().toISOString() }).eq("id", id);
+    const result = await checkOutEntry(
+      makeVisitorFlowPorts(supabase, societyId, user?.id ?? null),
+      id,
+    );
     setProcessingId(null);
-    if (error) { toast({ title: "Checkout failed", description: error.message, variant: "destructive" }); return; }
+    if (flowFailed(result)) {
+      toast({ title: "Checkout failed", description: result.error, variant: "destructive" });
+      return;
+    }
     await loadDashboardData(false);
     toast({ title: "Vehicle Checked Out" });
   };
