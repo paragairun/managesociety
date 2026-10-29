@@ -3,6 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { supabase } from "@/integrations/supabase/client";
 import { resolvePushTarget, PUSH_CHANNEL, type PushRole, type PushTarget } from "@/lib/pushRouting";
+import { takePushTarget, onPushTarget } from "@/lib/pushTarget";
 
 /**
  * Push notifications for one dashboard.
@@ -131,19 +132,11 @@ export function usePushNotifications(userId: string | undefined, options: PushOp
       },
     );
 
-    // The notification was tapped, from the tray or the banner.
-    const actionListener = PushNotifications.addListener(
-      "pushNotificationActionPerformed",
-      (action) => {
-        const { role, onOpen } = optionsRef.current;
-        if (!role || !onOpen) return;
-        const target = resolvePushTarget(action.notification.data, role);
-        // Null for a payload naming another role or an unknown view.
-        // Doing nothing leaves the app where it was, which beats
-        // selecting a section that does not exist and rendering blank.
-        if (target) onOpen(target);
-      },
-    );
+    // NOTE: the TAP is not handled here. It is captured at app
+    // bootstrap by startPushTapCapture() and parked in pushTarget,
+    // because a tap that launches a closed app fires before this hook
+    // — or React itself — exists. See the effect below, and the
+    // explanation in src/lib/pushTarget.ts.
 
     void setup();
 
@@ -152,8 +145,37 @@ export function usePushNotifications(userId: string | undefined, options: PushOp
       void registrationListener.then((l) => l.remove());
       void errorListener.then((l) => l.remove());
       void receivedListener.then((l) => l.remove());
-      void actionListener.then((l) => l.remove());
     };
     // options deliberately absent — see optionsRef above.
+  }, [userId]);
+
+  /**
+   * Open whatever a tapped notification asked for.
+   *
+   * Runs on mount to pick up a tap that happened before this dashboard
+   * existed — the cold-start case — and stays subscribed for taps that
+   * arrive while it is on screen.
+   *
+   * Not gated on isNativePlatform: a parked target is only ever created
+   * by the native listener, so there is nothing to consume on the web
+   * and the check would be redundant.
+   */
+  useEffect(() => {
+    const openPending = () => {
+      const { role, onOpen } = optionsRef.current;
+      if (!role || !onOpen) return;
+
+      const data = takePushTarget();
+      if (!data) return;
+
+      const target = resolvePushTarget(data, role);
+      // Null for a payload naming another role or an unknown view.
+      // Doing nothing leaves the app where it was, which beats
+      // selecting a section that does not exist and rendering blank.
+      if (target) onOpen(target);
+    };
+
+    openPending();
+    return onPushTarget(openPending);
   }, [userId]);
 }
