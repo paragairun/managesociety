@@ -47,10 +47,15 @@ name: Build Guard Native App
 # client for the package it is building.)
 #
 # ────────────────────────────────────────────────────────────────────────────
-# Output: one .apk under the run's "Artifacts" section, at the bottom of the
-# workflow run page. It is a debug-signed build -- fine to install directly
-# via "install from unknown sources", not set up for Play Store distribution
-# (that is build-release-aabs.yml's job, and a later step for this app).
+# Output: the .apk is published as a GitHub Release asset on a moving tag --
+# guard-native-dev or guard-native-standalone -- so the download URL is stable
+# and public, and the phone can install straight from its own browser. The
+# run's summary page prints the link. A copy is also attached to the run as a
+# build artifact, as a fallback.
+#
+# These are debug-signed builds: fine to install by hand via "install from
+# unknown sources", not set up for Play Store distribution (that is
+# build-release-aabs.yml's job, and a later step for this app).
 
 on:
   workflow_dispatch:
@@ -77,6 +82,9 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Needed to publish the APK as a release asset (see the last two steps).
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -197,21 +205,93 @@ jobs:
           cp "${APK}" "../artifact/managesociety-guard-${BUILD_KIND}.apk"
           ls -lh ../artifact
 
-      - name: Upload the APK
+      # Published as a release asset, NOT only as a build artifact.
+      #
+      # Artifacts are served from Azure Blob storage behind a per-account
+      # egress limit, and that limit is shared across everything the account
+      # downloads: on 2026-10-29 the download failed outright with
+      # "ServerBusy / Egress is over the account limit". They also require a
+      # signed-in session, so the only way to get one onto a phone is to
+      # download it on a computer and transfer it.
+      #
+      # A release asset is a plain, stable, public URL. It can be opened
+      # directly in the phone's browser, which is the whole install flow in
+      # one step, and the URL does not change between builds -- so there is
+      # nothing to re-send after each rebuild.
+      #
+      # One moving tag per build kind, so a standalone build never overwrites
+      # the development APK the phone is pointed at.
+      - name: Publish the APK where a phone can reach it
+        id: release
+        working-directory: ${{ env.APP_DIR }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_KIND: ${{ inputs.build || 'development' }}
+        run: |
+          set -euo pipefail
+          case "${BUILD_KIND}" in
+            standalone)  TAG=guard-native-standalone ;;
+            *)           TAG=guard-native-dev ;;
+          esac
+          APK="artifact/managesociety-guard-${BUILD_KIND}.apk"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/$(basename "${APK}")"
+
+          {
+            echo "ManageSociety Guard — native ${BUILD_KIND} build"
+            echo ""
+            echo "Built from ${GITHUB_SHA} on $(date -u '+%Y-%m-%d %H:%M UTC')."
+            echo ""
+            echo "Open this page on the phone and tap the .apk below to install."
+            echo "Uninstall the existing \"ManageSociety Guard\" app first: this one"
+            echo "keeps the same application id and is signed with a different key,"
+            echo "so Android refuses the install until the old one is gone."
+            echo ""
+            if [[ "${BUILD_KIND}" == "development" ]]; then
+              echo "This build contains no JavaScript. Start Metro on a computer with"
+              echo "'cd native/guard && npx expo start', then scan the QR code from"
+              echo "inside the app. Later code changes arrive by reloading."
+            else
+              echo "This build runs on its own, with nothing else switched on."
+            fi
+          } > notes.txt
+
+          # The tag moves with each build, so the old release is replaced
+          # rather than accumulating one per run. --cleanup-tag removes the
+          # tag too, so the next create re-points it at this commit.
+          gh release delete "${TAG}" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "${TAG}" "${APK}" \
+            --title "Guard native — ${BUILD_KIND}" \
+            --notes-file notes.txt \
+            --prerelease \
+            --target "${GITHUB_SHA}"
+
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+          echo "page=https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}" >> "$GITHUB_OUTPUT"
+
+      # Kept as a second copy. Costs nothing, and covers the case where the
+      # release step is the thing that fails.
+      - name: Upload the APK as a build artifact too
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: managesociety-guard-native-${{ inputs.build || 'development' }}-apk
           path: ${{ env.APP_DIR }}/artifact/*.apk
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: What to do with it
         env:
           BUILD_KIND: ${{ inputs.build || 'development' }}
+          APK_URL: ${{ steps.release.outputs.url }}
+          APK_PAGE: ${{ steps.release.outputs.page }}
         run: |
           {
             echo "## ManageSociety Guard (native) — ${BUILD_KIND} build"
             echo ""
-            echo "Download the APK from **Artifacts** at the bottom of this page."
+            echo "**Install it:** open this on the phone and tap the \`.apk\`:"
+            echo ""
+            echo "${APK_PAGE}"
+            echo ""
+            echo "Direct link: ${APK_URL}"
             echo ""
             echo "**Uninstall the existing \"ManageSociety Guard\" app first** — this one"
             echo "shares its application id (\`${APP_ID}\`) and is signed with a different key."
@@ -219,10 +299,13 @@ jobs:
             if [[ "${BUILD_KIND}" == "development" ]]; then
               echo "This build holds no JavaScript. After installing it:"
               echo ""
-              echo '1. On your computer: `cd native/guard && npx expo start --tunnel`'
+              echo '1. On your computer: `cd native/guard && npx expo start`'
               echo "2. Open the app on the phone and scan the QR code the terminal prints."
               echo ""
               echo "Every later code change is picked up by reloading in the app — no rebuild."
+              echo ""
+              echo "The URL above does not change between builds, so there is nothing to"
+              echo "re-send after a rebuild: reinstall from the same page."
             else
               echo "This build runs on its own. Install it and hand the phone to a guard."
             fi
