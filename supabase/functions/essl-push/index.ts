@@ -185,7 +185,7 @@ async function attachToStaffLogs(
       action = last?.action_type === "entry" ? "exit" : "entry";
     }
 
-    const { data: log } = await admin.from("staff_logs").insert({
+    const { data: log, error: logError } = await admin.from("staff_logs").insert({
       society_id: device.society_id,
       category: target.subject_category,
       staff_id: target.subject_id,
@@ -198,8 +198,37 @@ async function attachToStaffLogs(
       device_serial: serial,
     }).select("id").maybeSingle();
 
-    await admin.from("device_punches")
+    // THE ERROR USED TO BE DISCARDED HERE, and it cost real attendance
+    // data: a diagnostic found 105 of 540 processed punches with no
+    // staff_log behind them — roughly a quarter of every day's
+    // attendance, silently absent. The punch resolved to a person, the
+    // insert was rejected, and the row was still stamped
+    // processed = true, so nothing anywhere said a word.
+    //
+    // Two changes. The reason now reaches the function logs, and a
+    // failed punch is NOT marked processed, which keeps it visible to
+    // the backfill query instead of being written off as done.
+    //
+    // Note what this does not fix: the device_punches upsert uses
+    // ignoreDuplicates, so a re-sent batch returns no rows and this
+    // code never sees these punches again. Recovering them needs the
+    // backfill, not a retry from the terminal.
+    if (logError) {
+      console.error(
+        `${serial}: staff_logs insert failed for PIN ${p.device_pin} ` +
+        `(${target.subject_category} ${target.subject_id}) at ${p.punched_at}: ${logError.message}`,
+      );
+      continue;
+    }
+
+    const { error: markError } = await admin.from("device_punches")
       .update({ processed: true, staff_log_id: log?.id ?? null })
       .eq("id", p.id);
+
+    // Not fatal — the log exists, which is the part that matters — but
+    // an unmarked punch will look unprocessed for ever, so say so.
+    if (markError) {
+      console.error(`${serial}: could not mark punch ${p.id} processed: ${markError.message}`);
+    }
   }
 }
