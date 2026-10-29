@@ -116,6 +116,16 @@ jobs:
           [[ $missing -eq 0 ]] || exit 1
           echo "All shared modules present."
 
+      # Only this app's dependencies are installed, not the website's, which
+      # is the stricter of the two cases and the reason tsconfig.json maps
+      # @supabase/supabase-js explicitly: the shared modules under src/lib
+      # import SupabaseClient as a type, and TypeScript resolves that from the
+      # importing file's own folder outwards -- so it looks for
+      # managesociety/node_modules, which exists on a machine that has also
+      # installed the website and does not exist here. The import is erased at
+      # build time, so this was only ever a typecheck failure, and only away
+      # from a full checkout. Do not "fix" a recurrence by installing the root
+      # dependencies; fix the mapping.
       - name: Typecheck
         working-directory: ${{ env.APP_DIR }}
         run: npx tsc --noEmit
