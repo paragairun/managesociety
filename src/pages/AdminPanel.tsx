@@ -38,6 +38,7 @@ import AdminHome from "@/components/AdminHome";
 import EvChargingAdmin from "@/components/EvChargingAdmin";
 import { can, type AppRole, type Capability } from "@/lib/permissions";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useBackToHome } from "@/hooks/useBackToHome";
 
 type Vehicle = Tables<"vehicles">;
 type EntryLog = Tables<"entry_logs">;
@@ -72,6 +73,9 @@ const NAV: (NavItem & { requires?: Capability })[] = [
 
 const AdminPanel = () => {
   const [activeView, setActiveView] = useState("home");
+
+  // Back goes to the Home tab rather than out of the dashboard.
+  useBackToHome(activeView, setActiveView);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [showQrFor, setShowQrFor] = useState<string | null>(null);
   const [justRegisteredQr, setJustRegisteredQr] = useState<string | null>(null);

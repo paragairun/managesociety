@@ -28,6 +28,7 @@ import StaffAttendanceLog from "@/components/StaffAttendanceLog";
 import ResidentDeliveryApprovals from "@/components/ResidentDeliveryApprovals";
 import EvChargingResident from "@/components/EvChargingResident";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useBackToHome } from "@/hooks/useBackToHome";
 
 interface GuestPass {
   id: string; visitor_name: string; phone: string; vehicle_number: string;
@@ -70,6 +71,9 @@ const CHILD_NAV: NavItem[] = [
 
 const ResidentPortal = () => {
   const [activeView, setActiveView] = useState("home");
+
+  // Back goes to the Home tab rather than out of the dashboard.
+  useBackToHome(activeView, setActiveView);
   const [form, setForm] = useState(emptyForm);
   const [guestPasses, setGuestPasses] = useState<GuestPass[]>([]);
   const [visitLogs, setVisitLogs] = useState<VisitLog[]>([]);
@@ -802,7 +806,10 @@ const ResidentPortal = () => {
           The alert for a delivery has to outlive the screen that shows
           it, so it stays mounted and is hidden with CSS instead. */}
       <div className={activeView === "deliveries" ? undefined : "hidden"}>
-        <ResidentDeliveryApprovals onPendingCountChange={setPendingDeliveries} />
+        <ResidentDeliveryApprovals
+          onPendingCountChange={setPendingDeliveries}
+          onViewDeliveries={() => setActiveView("deliveries")}
+        />
       </div>
       {activeView === "dues" && <MyDues residentFlats={flats} formatFlat={formatFlat} />}
       {activeView === "amenities" && <AmenityBooking residentFlats={flats} />}

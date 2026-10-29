@@ -18,6 +18,7 @@ import { decodeGuestPass } from "@/lib/guest-pass";
 import DashboardShell, { NavItem } from "@/components/DashboardShell";
 import DeliveryManager from "@/components/DeliveryManager";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useBackToHome } from "@/hooks/useBackToHome";
 
 type VisitorRequest = Tables<"visitor_requests">;
 type EntryLog = Tables<"entry_logs">;
@@ -34,6 +35,9 @@ const NAV: NavItem[] = [
 
 const GuardDashboard = () => {
   const [activeView, setActiveView] = useState("home");
+
+  // Back goes to the Home tab rather than out of the dashboard.
+  useBackToHome(activeView, setActiveView);
   const [scanning, setScanning] = useState(false);
   const [deliveryFormTrigger, setDeliveryFormTrigger] = useState(0);
   const [visitors, setVisitors] = useState<VisitorRequest[]>([]);

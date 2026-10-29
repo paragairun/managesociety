@@ -3,6 +3,7 @@ import { CheckCircle, XCircle, Package, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSocietyStructure } from "@/hooks/useSocietyStructure";
@@ -22,6 +23,15 @@ interface DeliveryVisit {
 }
 
 interface ResidentDeliveryApprovalsProps {
+  /**
+   * Switch the portal to the Deliveries tab. Supplied by the parent
+   * because this component cannot change the tab it lives in.
+   *
+   * The alert used to be a dead end: a toast saying a delivery was
+   * waiting, with no way to act on it. The resident had to work out for
+   * themselves that the answer was in the sidebar.
+   */
+  onViewDeliveries?: () => void;
   /** Called when pending count changes — parent uses this to show badge */
   onPendingCountChange?: (count: number) => void;
 }
@@ -161,7 +171,7 @@ if (typeof document !== "undefined") {
   document.addEventListener("keydown", unlockAudio);
 }
 
-const ResidentDeliveryApprovals = ({ onPendingCountChange }: ResidentDeliveryApprovalsProps) => {
+const ResidentDeliveryApprovals = ({ onPendingCountChange, onViewDeliveries }: ResidentDeliveryApprovalsProps) => {
   const { user, societyId } = useAuth();
   const { formatFlat } = useSocietyStructure(societyId);
   const { toast } = useToast();
@@ -170,6 +180,14 @@ const ResidentDeliveryApprovals = ({ onPendingCountChange }: ResidentDeliveryApp
   const [processing, setProcessing] = useState<string | null>(null);
   const prevPendingIds = useRef<Set<string>>(new Set());
   const hasAlertedToast = useRef<Set<string>>(new Set());
+
+  // Held in a ref so it is NOT a dependency of fetchVisits. The parent
+  // passes an inline arrow, which is a new function on every render; as
+  // a dependency it would rebuild fetchVisits each time, re-run the
+  // polling effect, and its cleanup would call ringtone.stop() — the
+  // ring would be cancelled milliseconds after starting, every render.
+  const onViewRef = useRef(onViewDeliveries);
+  onViewRef.current = onViewDeliveries;
 
   const fetchVisits = useCallback(async () => {
     if (!user || !societyId) return;
@@ -205,7 +223,18 @@ const ResidentDeliveryApprovals = ({ onPendingCountChange }: ResidentDeliveryApp
     pendingVisits.forEach((v) => {
       if (!hasAlertedToast.current.has(v.id)) {
         hasAlertedToast.current.add(v.id);
-        toast({ title: "🔔 New delivery at your gate!", description: "A delivery is waiting for your approval." });
+        toast({
+          title: "🔔 New delivery at your gate!",
+          description: "A delivery is waiting for your approval.",
+          // The way to act on it, next to the news of it.
+          action: onViewRef.current
+            ? (
+              <ToastAction altText="Open the delivery approvals" onClick={() => onViewRef.current?.()}>
+                Approve
+              </ToastAction>
+            )
+            : undefined,
+        });
       }
     });
     prevPendingIds.current = newPendingIds;
