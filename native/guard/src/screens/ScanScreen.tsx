@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   },
   hitTitle: { color: colors.text, fontSize: type.body, fontWeight: "700" },
   hitSub: { color: colors.textMuted, fontSize: type.caption, marginTop: 2 },
-  hitAction: { color: colors.brand, fontSize: type.label, fontWeight: "700" },
+  hitAction: { color: colors.brandInk, fontSize: type.label, fontWeight: "700" },
 
   empty: { color: colors.textFaint, fontSize: type.label, textAlign: "center", marginTop: space.lg },
 
@@ -282,18 +282,21 @@ const styles = StyleSheet.create({
     width: 240, height: 240,
     borderWidth: 3, borderColor: colors.brand, borderRadius: radius.lg,
   },
+  // Over a live camera feed, so these use the scrim pair rather than
+  // the theme's surfaces: the background here is whatever the camera is
+  // pointed at.
   camFooter: {
     position: "absolute", left: 0, right: 0, bottom: 0,
     padding: space.xl, gap: space.md,
-    backgroundColor: "rgba(15,18,28,0.85)",
+    backgroundColor: colors.scrim,
   },
-  camHint: { color: colors.text, fontSize: type.body, textAlign: "center" },
+  camHint: { color: colors.onScrim, fontSize: type.body, textAlign: "center" },
   cancel: {
     minHeight: TOUCH, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
+    borderWidth: 1, borderColor: colors.scrimBorder,
     alignItems: "center", justifyContent: "center",
   },
-  cancelText: { color: colors.text, fontSize: type.heading, fontWeight: "700" },
+  cancelText: { color: colors.onScrim, fontSize: type.heading, fontWeight: "700" },
 });
 
 export default ScanScreen;

@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { ActivityIndicator, AppState, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { NavigationContainer, DarkTheme } from "@react-navigation/native";
+import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -116,9 +116,9 @@ export default function App() {
         <AuthProvider>
           <NavigationContainer
             theme={{
-              ...DarkTheme,
+              ...DefaultTheme,
               colors: {
-                ...DarkTheme.colors,
+                ...DefaultTheme.colors,
                 primary: colors.brand,
                 background: colors.background,
                 card: colors.surface,
@@ -127,7 +127,7 @@ export default function App() {
               },
             }}
           >
-            <StatusBar style="light" />
+            <StatusBar style="dark" />
             <Shell />
           </NavigationContainer>
         </AuthProvider>

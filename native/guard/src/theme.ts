@@ -1,72 +1,26 @@
 /**
- * Colours and spacing for the guard app.
+ * The guard app's theme: the shared ManageSociety palette, at gate size.
  *
- * Deliberately a small hand-written token set rather than a port of the
- * website's Tailwind theme. The web theme is ~40 CSS custom properties
- * driving shadcn components that do not exist here, and copying it
- * wholesale would import vocabulary this app never uses while still
- * needing every value translated.
+ * Colours come from @core/brand, which converts the website's own
+ * tokens in src/index.css — amber on deep navy, the same as the
+ * launcher icon. They are NOT defined here, and must not be: this file
+ * previously carried a hand-picked blue (#06ACEA) that appeared in
+ * neither the website nor the icon, and the app shipped looking like a
+ * different product.
  *
- * The brand blue is the one already baked into the Android launcher
- * icons (ic_launcher_background.xml), so the app, its icon and its
- * splash screen agree.
- *
- * DESIGNED FOR A GATE, which is a specific and unusual place:
- *   - outdoors, often in direct sun, so contrast is high and the
- *     palette avoids mid greys that disappear in glare
- *   - one-handed, at arm's length, frequently at night
- *   - the user is standing, holding something, and in a hurry
- * Hence touch targets at 56px rather than the 44px minimum, and type
- * a step larger than a phone app would normally use.
+ * What IS decided here is sizing, because a gate is a specific and
+ * unusual place:
+ *   - outdoors, often in direct sun, read at arm's length
+ *   - one-handed, by someone standing and in a hurry, frequently at night
+ * Hence the `gate` scales: 56px touch targets rather than the 44px
+ * minimum, and type a step larger than a phone app would use.
  */
+import { palette, space, radius, typeScale, touch } from "@core/brand";
 
-export const colors = {
-  brand: "#06ACEA",
-  brandDark: "#0487B8",
+export const colors = palette;
+export { space, radius };
 
-  background: "#0F121C",
-  surface: "#1A1F2E",
-  surfaceRaised: "#232938",
-  border: "#2E3547",
-
-  text: "#F5F7FA",
-  textMuted: "#9AA4B8",
-  textFaint: "#6B7689",
-
-  success: "#22C55E",
-  successBg: "#0E2A18",
-  warning: "#F5A028",
-  warningBg: "#2B1D08",
-  danger: "#EF4444",
-  dangerBg: "#2B1010",
-
-  onBrand: "#FFFFFF",
-} as const;
-
-export const space = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
-  xxl: 32,
-} as const;
-
-export const radius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  pill: 999,
-} as const;
-
-export const type = {
-  // A step up from typical phone sizing: read at arm's length, in sun.
-  title: 24,
-  heading: 19,
-  body: 16,
-  label: 14,
-  caption: 12,
-} as const;
+export const type = typeScale.gate;
 
 /** Minimum height for anything tappable. Gloves, haste, bad light. */
-export const TOUCH = 56;
+export const TOUCH = touch.gate;

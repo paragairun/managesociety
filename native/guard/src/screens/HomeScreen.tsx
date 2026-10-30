@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceRaised,
     borderWidth: 2, borderColor: colors.brand, borderRadius: radius.lg,
   },
-  scanIcon: { fontSize: 40, color: colors.brand },
+  scanIcon: { fontSize: 40, color: colors.brandInk },
   scanTitle: { color: colors.text, fontSize: type.title, fontWeight: "700" },
   scanSub: { color: colors.textMuted, fontSize: type.label, marginTop: 2 },
 

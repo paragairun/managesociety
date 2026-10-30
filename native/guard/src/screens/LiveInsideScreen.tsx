@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.75 },
 
   header: { alignItems: "center", paddingVertical: space.lg, marginBottom: space.sm },
-  count: { color: colors.brand, fontSize: 56, fontWeight: "800", lineHeight: 60 },
+  count: { color: colors.brandInk, fontSize: 56, fontWeight: "800", lineHeight: 60 },
   countLabel: { color: colors.textMuted, fontSize: type.label },
 
   card: {
@@ -192,15 +192,15 @@ const styles = StyleSheet.create({
   tagVisitor: { backgroundColor: colors.warningBg },
   tagResident: { backgroundColor: colors.successBg },
   tagText: { fontSize: type.caption, fontWeight: "700" },
-  tagTextVisitor: { color: colors.warning },
-  tagTextResident: { color: colors.success },
+  tagTextVisitor: { color: colors.warningInk },
+  tagTextResident: { color: colors.successInk },
 
   out: {
     minWidth: 72, minHeight: TOUCH, borderRadius: radius.md,
     borderWidth: 2, borderColor: colors.danger,
     alignItems: "center", justifyContent: "center",
   },
-  outText: { color: colors.danger, fontSize: type.body, fontWeight: "800" },
+  outText: { color: colors.dangerInk, fontSize: type.body, fontWeight: "800" },
 
   empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.sm },
   emptyTitle: { color: colors.text, fontSize: type.heading, fontWeight: "700" },

@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "ManageSociety",
+    "slug": "managesociety-resident",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "msresident",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F59300"
+    },
+    "android": {
+      "package": "in.managesociety.resident",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F59300"
+      },
+      "googleServicesFile": "../../mobile-resident/android/app/google-services.json",
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "in.managesociety.resident",
+      "supportsTablet": true
+    },
+    "plugins": [
+      "expo-notifications"
+    ]
+  }
+}

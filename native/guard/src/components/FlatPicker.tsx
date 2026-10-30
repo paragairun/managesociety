@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.success, borderRadius: radius.md,
   },
   chosenText: { color: colors.text, fontSize: type.heading, fontWeight: "700" },
-  chosenChange: { color: colors.brand, fontSize: type.label, fontWeight: "700" },
+  chosenChange: { color: colors.brandInk, fontSize: type.label, fontWeight: "700" },
 });
 
 export default FlatPicker;

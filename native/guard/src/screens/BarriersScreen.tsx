@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   tagOnline: { backgroundColor: colors.successBg },
   tagOffline: { backgroundColor: colors.surfaceRaised },
   tagText: { fontSize: type.caption, fontWeight: "700" },
-  tagTextOnline: { color: colors.success },
+  tagTextOnline: { color: colors.successInk },
   tagTextOffline: { color: colors.textMuted },
 
   actions: { flexDirection: "row", gap: space.md, marginTop: space.md },

@@ -192,16 +192,16 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: colors.danger,
     alignItems: "center", justifyContent: "center",
   },
-  denyText: { color: colors.danger, fontSize: type.heading, fontWeight: "700" },
+  denyText: { color: colors.dangerInk, fontSize: type.heading, fontWeight: "700" },
   allow: {
     flex: 2, minHeight: TOUCH, borderRadius: radius.md,
     backgroundColor: colors.success,
     alignItems: "center", justifyContent: "center",
   },
-  allowText: { color: colors.onBrand, fontSize: type.heading, fontWeight: "800" },
+  allowText: { color: colors.onSuccess, fontSize: type.heading, fontWeight: "800" },
 
   empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.sm },
-  emptyIcon: { color: colors.success, fontSize: 48 },
+  emptyIcon: { color: colors.successInk, fontSize: 48 },
   emptyTitle: { color: colors.text, fontSize: type.heading, fontWeight: "700" },
   emptyBody: { color: colors.textMuted, fontSize: type.label, textAlign: "center" },
 });

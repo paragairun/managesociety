@@ -27,10 +27,12 @@ import { colors, radius, space, TOUCH, type } from "@/theme";
  */
 const PHOTO_WIDTH = 640;
 
+// Ink variants: these colour status TEXT on a light theme, where the
+// fill colours are far too pale to read as letterforms.
 const TONE_COLOR: Record<StatusTone, string> = {
-  waiting: colors.warning,
-  good: colors.success,
-  bad: colors.danger,
+  waiting: colors.warningInk,
+  good: colors.successInk,
+  bad: colors.dangerInk,
   done: colors.textMuted,
 };
 
@@ -507,7 +509,7 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: colors.success,
     alignItems: "center", justifyContent: "center",
   },
-  exitText: { color: colors.success, fontSize: type.body, fontWeight: "800" },
+  exitText: { color: colors.successInk, fontSize: type.body, fontWeight: "800" },
 
   empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.sm },
   emptyTitle: { color: colors.text, fontSize: type.heading, fontWeight: "700" },
@@ -568,17 +570,18 @@ const styles = StyleSheet.create({
   },
   submitText: { color: colors.onBrand, fontSize: type.heading, fontWeight: "800" },
 
+  // Over a live camera feed — see the scrim note in ScanScreen.
   camFooter: {
     position: "absolute", left: 0, right: 0, bottom: 0,
     flexDirection: "row", gap: space.md, padding: space.xl,
-    backgroundColor: "rgba(15,18,28,0.85)",
+    backgroundColor: colors.scrim,
   },
   camCancel: {
     flex: 1, minHeight: TOUCH, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
+    borderWidth: 1, borderColor: colors.scrimBorder,
     alignItems: "center", justifyContent: "center",
   },
-  camCancelText: { color: colors.text, fontSize: type.heading, fontWeight: "700" },
+  camCancelText: { color: colors.onScrim, fontSize: type.heading, fontWeight: "700" },
   camShoot: {
     flex: 2, minHeight: TOUCH, borderRadius: radius.md,
     backgroundColor: colors.brand,
