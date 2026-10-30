@@ -12,13 +12,26 @@
  *                   charges, where the floor area is the fair measure.
  *   fixed           the same for every flat. A one-off repair levy, a
  *                   festival fund.
+ *   per_flat        an amount decided flat by flat, following from
+ *                   nothing about the flat: two-wheeler and
+ *                   four-wheeler parking, fines, penalties, a hall
+ *                   booking. Flat 101 keeps two scooters and 102 keeps
+ *                   none, and no rule derives that.
+ *
+ * per_flat covers both recurring and one-off amounts, because both are
+ * "an amount for this flat under this head" and the committee enters
+ * them the same way. What tells them apart is the period: parking
+ * recurs until the resident sells the car, a fine is billed once. Get
+ * that wrong and a ₹5,000 fine is re-billed every month, which a
+ * committee learns about from an angry resident rather than from us.
  *
  * Kept apart from the UI because this is the arithmetic a committee is
  * answerable for. A resident who disputes a bill is disputing these
  * lines, and "the spreadsheet said so" is not an answer.
  */
 
-export type ChargeCalculation = "per_unit_type" | "per_sqft" | "fixed";
+export type ChargeCalculation =
+  | "per_unit_type" | "per_sqft" | "fixed" | "per_flat";
 
 export interface ChargeHead {
   id: string;
@@ -29,6 +42,20 @@ export interface ChargeHead {
   /** Used by per_unit_type: { "2BHK": 1200, "3BHK": 1800 }. */
   unit_rates?: Record<string, number> | null;
   is_active?: boolean;
+}
+
+/**
+ * One per-flat amount, as stored in maintenance_flat_charges.
+ *
+ * for_period null means every month; a "YYYY-MM" means that month
+ * only. See supabase/schema/per_flat_charges.sql.
+ */
+export interface FlatCharge {
+  head_id: string;
+  flat_id: string;
+  amount: number;
+  for_period?: string | null;
+  note?: string | null;
 }
 
 export interface FlatForBilling {
@@ -72,7 +99,23 @@ const rupees = (n: number): number => Math.round(n * 100) / 100;
  * head that applies at zero is included as a zero line — "security:
  * ₹0" is information, where a missing line is a question.
  */
-export function billForFlat(flat: FlatForBilling, heads: ChargeHead[]): FlatBill {
+export function billForFlat(
+  flat: FlatForBilling,
+  heads: ChargeHead[],
+  /**
+   * Every per-flat amount for the society. Filtered here rather than by
+   * the caller so one bill run cannot accidentally use a different rule
+   * for the period than another.
+   */
+  flatCharges: FlatCharge[] = [],
+  /**
+   * The month being billed, "YYYY-MM". Omitted, only recurring
+   * per-flat amounts apply — which is the safe direction to fail: a
+   * missing parking charge is a question, where a re-billed fine is a
+   * refund and an apology.
+   */
+  period?: string,
+): FlatBill {
   const lines: BillLine[] = [];
   const skipped: FlatBill["skipped"] = [];
 
@@ -98,6 +141,43 @@ export function billForFlat(flat: FlatForBilling, heads: ChargeHead[]): FlatBill
           description: `${head.name} (${flat.area_sqft} sq ft × ₹${head.rate})`,
           amount: rupees(head.rate * flat.area_sqft),
         });
+        break;
+      }
+
+      case "per_flat": {
+        const mine = flatCharges.filter(
+          (c) => c.head_id === head.id
+            && c.flat_id === flat.id
+            // Recurring always; a one-off only in its own month.
+            && (c.for_period == null || c.for_period === period),
+        );
+
+        if (mine.length === 0) {
+          // Not a problem, and deliberately not reported as one. Most
+          // flats owe nothing under most per-flat heads — a flat with
+          // no car is not an oversight in the parking head, and
+          // flagging it would bury the real omissions among hundreds
+          // of non-events.
+          break;
+        }
+
+        for (const charge of mine) {
+          if (!Number.isFinite(charge.amount) || charge.amount < 0) {
+            skipped.push({
+              head_id: head.id, head_name: head.name,
+              reason: `the amount recorded for this flat (${charge.amount}) is not a usable figure`,
+            });
+            continue;
+          }
+          // A one-off carries its reason onto the bill. "Fine: ₹2,000"
+          // with nothing after it is what starts the argument.
+          const why = charge.note?.trim();
+          lines.push({
+            head_id: head.id,
+            description: why ? `${head.name} — ${why}` : head.name,
+            amount: rupees(charge.amount),
+          });
+        }
         break;
       }
 
@@ -161,8 +241,13 @@ export interface BillRun {
  * their largest charge is the failure worth preventing, and it is
  * invisible in a total.
  */
-export function billRun(flats: FlatForBilling[], heads: ChargeHead[]): BillRun {
-  const bills = flats.map((f) => billForFlat(f, heads));
+export function billRun(
+  flats: FlatForBilling[],
+  heads: ChargeHead[],
+  flatCharges: FlatCharge[] = [],
+  period?: string,
+): BillRun {
+  const bills = flats.map((f) => billForFlat(f, heads, flatCharges, period));
 
   const withProblems = bills
     .map((bill, i) => ({
@@ -193,5 +278,40 @@ export function describeCharge(head: ChargeHead): string {
       if (entries.length === 0) return "No rates set yet";
       return entries.map(([unit, rate]) => `${unit} ₹${rate}`).join(" · ");
     }
+    case "per_flat":
+      // The head itself carries no amount — they live per flat, so the
+      // count is the only thing that can be said without them. The UI
+      // passes that count in via describeFlatCharges below.
+      return "Set per flat";
   }
+}
+
+/**
+ * How many flats have an amount under a per-flat head, for the admin
+ * list.
+ *
+ * Separate from describeCharge because it needs the amounts, which that
+ * function deliberately does not take — a head is described in a dozen
+ * places and most of them have no reason to load two hundred rows.
+ */
+export function describeFlatCharges(
+  head: ChargeHead,
+  flatCharges: FlatCharge[],
+): string {
+  const mine = flatCharges.filter((c) => c.head_id === head.id);
+  if (mine.length === 0) return "No flats charged yet";
+
+  const recurring = mine.filter((c) => c.for_period == null);
+  const oneOff = mine.filter((c) => c.for_period != null);
+
+  const parts: string[] = [];
+  if (recurring.length > 0) {
+    const total = recurring.reduce((sum, c) => sum + c.amount, 0);
+    parts.push(`${recurring.length} flat${recurring.length === 1 ? "" : "s"} monthly (₹${rupees(total)})`);
+  }
+  if (oneOff.length > 0) {
+    const months = [...new Set(oneOff.map((c) => c.for_period))].sort();
+    parts.push(`${oneOff.length} one-off in ${months.join(", ")}`);
+  }
+  return parts.join(" · ");
 }

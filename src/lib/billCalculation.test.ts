@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
-  billForFlat, billRun, describeCharge,
-  type ChargeHead, type FlatForBilling,
+  billForFlat, billRun, describeCharge, describeFlatCharges,
+  type ChargeHead, type FlatForBilling, type FlatCharge,
 } from "./billCalculation";
 
 const heads: ChargeHead[] = [
@@ -156,5 +156,207 @@ describe("describing a charge for the admin form", () => {
     expect(describeCharge({
       id: "n", name: "New", calculation_type: "per_unit_type", rate: 0, unit_rates: {},
     })).toBe("No rates set yet");
+  });
+});
+
+// ── per_flat ────────────────────────────────────────────────────────────
+//
+// Amounts decided flat by flat: parking, fines, penalties, hall
+// bookings. The thing these tests exist to prevent is a one-off being
+// treated as recurring, which bills a fine every month forever.
+
+const parking: ChargeHead = {
+  id: "p1", name: "2W Parking", calculation_type: "per_flat", rate: 0,
+};
+const fines: ChargeHead = {
+  id: "p2", name: "Fines & penalties", calculation_type: "per_flat", rate: 0,
+};
+
+const flat101: FlatForBilling = {
+  id: "f101", flat_number: "101", wing: "A", flat_type: "2BHK", area_sqft: 950,
+};
+const flat102: FlatForBilling = {
+  id: "f102", flat_number: "102", wing: "A", flat_type: "2BHK", area_sqft: 950,
+};
+
+describe("per_flat charges", () => {
+  it("bills a recurring amount in any month", () => {
+    const charges: FlatCharge[] = [
+      { head_id: "p1", flat_id: "f101", amount: 200, for_period: null },
+    ];
+    for (const month of ["2026-11", "2026-12", "2027-01"]) {
+      const bill = billForFlat(flat101, [parking], charges, month);
+      expect(bill.total).toBe(200);
+      expect(bill.lines).toHaveLength(1);
+    }
+  });
+
+  it("charges each flat its own amount, not one rate for all", () => {
+    const charges: FlatCharge[] = [
+      { head_id: "p1", flat_id: "f101", amount: 400 },
+      { head_id: "p1", flat_id: "f102", amount: 200 },
+    ];
+    expect(billForFlat(flat101, [parking], charges, "2026-11").total).toBe(400);
+    expect(billForFlat(flat102, [parking], charges, "2026-11").total).toBe(200);
+  });
+
+  it("charges nothing to a flat with no amount recorded, and does not call it a problem", () => {
+    // A flat with no car is not an oversight in the parking head.
+    // Reporting it would bury the real omissions among hundreds of
+    // non-events.
+    const charges: FlatCharge[] = [{ head_id: "p1", flat_id: "f101", amount: 200 }];
+    const bill = billForFlat(flat102, [parking], charges, "2026-11");
+    expect(bill.total).toBe(0);
+    expect(bill.lines).toHaveLength(0);
+    expect(bill.skipped).toHaveLength(0);
+  });
+
+  it("bills a one-off in its own month", () => {
+    const charges: FlatCharge[] = [
+      { head_id: "p2", flat_id: "f101", amount: 5000, for_period: "2026-11",
+        note: "Unauthorised parking" },
+    ];
+    const bill = billForFlat(flat101, [fines], charges, "2026-11");
+    expect(bill.total).toBe(5000);
+    expect(bill.lines[0].description).toBe("Fines & penalties — Unauthorised parking");
+  });
+
+  it("DOES NOT re-bill a one-off in a later month", () => {
+    // The whole reason for_period exists. A fine billed every month
+    // is a refund and an apology.
+    const charges: FlatCharge[] = [
+      { head_id: "p2", flat_id: "f101", amount: 5000, for_period: "2026-11" },
+    ];
+    expect(billForFlat(flat101, [fines], charges, "2026-12").total).toBe(0);
+    expect(billForFlat(flat101, [fines], charges, "2027-06").total).toBe(0);
+  });
+
+  it("does not bill a one-off in an earlier month either", () => {
+    const charges: FlatCharge[] = [
+      { head_id: "p2", flat_id: "f101", amount: 5000, for_period: "2026-11" },
+    ];
+    expect(billForFlat(flat101, [fines], charges, "2026-10").total).toBe(0);
+  });
+
+  it("with no period given, bills recurring amounts and no one-offs", () => {
+    // The safe direction to fail: a missing parking charge is a
+    // question, a re-billed fine is a refund.
+    const charges: FlatCharge[] = [
+      { head_id: "p1", flat_id: "f101", amount: 200, for_period: null },
+      { head_id: "p2", flat_id: "f101", amount: 5000, for_period: "2026-11" },
+    ];
+    const bill = billForFlat(flat101, [parking, fines], charges);
+    expect(bill.total).toBe(200);
+  });
+
+  it("bills a recurring and a one-off amount together under the same head", () => {
+    // Parking for the month plus a penalty for late payment of it.
+    const charges: FlatCharge[] = [
+      { head_id: "p1", flat_id: "f101", amount: 200, for_period: null },
+      { head_id: "p1", flat_id: "f101", amount: 50, for_period: "2026-11",
+        note: "Late fee" },
+    ];
+    const bill = billForFlat(flat101, [parking], charges, "2026-11");
+    expect(bill.total).toBe(250);
+    expect(bill.lines).toHaveLength(2);
+  });
+
+  it("ignores another head's amounts", () => {
+    const charges: FlatCharge[] = [{ head_id: "p2", flat_id: "f101", amount: 5000 }];
+    expect(billForFlat(flat101, [parking], charges, "2026-11").total).toBe(0);
+  });
+
+  it("skips an inactive per-flat head", () => {
+    const charges: FlatCharge[] = [{ head_id: "p1", flat_id: "f101", amount: 200 }];
+    const bill = billForFlat(flat101, [{ ...parking, is_active: false }], charges, "2026-11");
+    expect(bill.total).toBe(0);
+  });
+
+  it("reports an unusable amount rather than billing it", () => {
+    const charges: FlatCharge[] = [
+      { head_id: "p1", flat_id: "f101", amount: Number.NaN },
+      { head_id: "p2", flat_id: "f101", amount: -500 },
+    ];
+    const bill = billForFlat(flat101, [parking, fines], charges, "2026-11");
+    expect(bill.total).toBe(0);
+    expect(bill.skipped).toHaveLength(2);
+  });
+
+  it("bills a per-flat amount alongside the other three calculations", () => {
+    const charges: FlatCharge[] = [{ head_id: "p1", flat_id: "f101", amount: 200 }];
+    const bill = billForFlat(flat101, [...heads, parking], charges, "2026-11");
+    // 1200 (2BHK) + 950x2 (sqft) + 250 (fixed) + 200 (parking)
+    expect(bill.total).toBe(1200 + 1900 + 250 + 200);
+    expect(bill.lines).toHaveLength(4);
+  });
+
+  it("needs no amounts passed at all to keep working", () => {
+    // Existing callers that predate per_flat must not break.
+    const bill = billForFlat(flat101, heads);
+    expect(bill.total).toBe(1200 + 1900 + 250);
+  });
+});
+
+describe("billRun with per-flat charges", () => {
+  it("totals per-flat amounts across the society", () => {
+    const charges: FlatCharge[] = [
+      { head_id: "p1", flat_id: "f101", amount: 400 },
+      { head_id: "p1", flat_id: "f102", amount: 200 },
+    ];
+    const run = billRun([flat101, flat102], [parking], charges, "2026-11");
+    expect(run.total).toBe(600);
+    expect(run.withProblems).toHaveLength(0);
+  });
+
+  it("does not flag flats that simply owe nothing per-flat", () => {
+    const run = billRun([flat101, flat102], [parking], [], "2026-11");
+    expect(run.total).toBe(0);
+    expect(run.withProblems).toHaveLength(0);
+  });
+
+  it("a one-off lands on exactly one month's run", () => {
+    const charges: FlatCharge[] = [
+      { head_id: "p2", flat_id: "f101", amount: 5000, for_period: "2026-11" },
+    ];
+    expect(billRun([flat101, flat102], [fines], charges, "2026-11").total).toBe(5000);
+    expect(billRun([flat101, flat102], [fines], charges, "2026-12").total).toBe(0);
+  });
+});
+
+describe("describeCharge and describeFlatCharges", () => {
+  it("says a per-flat head has no rate of its own", () => {
+    expect(describeCharge(parking)).toBe("Set per flat");
+  });
+
+  it("counts nothing when no flat is charged", () => {
+    expect(describeFlatCharges(parking, [])).toBe("No flats charged yet");
+  });
+
+  it("summarises recurring amounts with their monthly total", () => {
+    const charges: FlatCharge[] = [
+      { head_id: "p1", flat_id: "f101", amount: 400 },
+      { head_id: "p1", flat_id: "f102", amount: 200 },
+    ];
+    expect(describeFlatCharges(parking, charges)).toBe("2 flats monthly (₹600)");
+  });
+
+  it("uses the singular for one flat", () => {
+    expect(describeFlatCharges(parking, [{ head_id: "p1", flat_id: "f101", amount: 400 }]))
+      .toBe("1 flat monthly (₹400)");
+  });
+
+  it("separates one-offs from recurring and names their months", () => {
+    const charges: FlatCharge[] = [
+      { head_id: "p1", flat_id: "f101", amount: 400 },
+      { head_id: "p1", flat_id: "f102", amount: 50, for_period: "2026-12" },
+      { head_id: "p1", flat_id: "f101", amount: 50, for_period: "2026-11" },
+    ];
+    expect(describeFlatCharges(parking, charges))
+      .toBe("1 flat monthly (₹400) · 2 one-off in 2026-11, 2026-12");
+  });
+
+  it("ignores another head's amounts in the count", () => {
+    const charges: FlatCharge[] = [{ head_id: "p2", flat_id: "f101", amount: 5000 }];
+    expect(describeFlatCharges(parking, charges)).toBe("No flats charged yet");
   });
 });
