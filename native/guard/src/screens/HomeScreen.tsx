@@ -25,16 +25,23 @@ export interface HomeScreenProps {
  * the screen; the counts below it are the two numbers a guard is asked
  * about ("anyone waiting?", "how many inside?").
  */
+/**
+ * The rest of the sections, below the two gate boxes.
+ *
+ * "Search & Scan" is marked scanOnly: on a society using RFID boom
+ * barriers nothing is scanned, and the search half of that screen is
+ * reachable from the Visitor box anyway.
+ */
 const TILES = [
-  { id: "Scan",       title: "Search & Scan",     tint: colors.brand },
-  { id: "Approvals",  title: "Pending Approvals", tint: colors.warning },
-  { id: "Live",       title: "Live Inside",       tint: colors.success },
-  { id: "Barriers",   title: "Boom Barriers",     tint: colors.brand },
-  { id: "Deliveries", title: "Deliveries",        tint: colors.success },
+  { id: "Scan",       title: "Search & Scan",     tint: colors.brand,   scanOnly: true },
+  { id: "Approvals",  title: "Pending Approvals", tint: colors.warning, scanOnly: false },
+  { id: "Live",       title: "Live Inside",       tint: colors.success, scanOnly: false },
+  { id: "Barriers",   title: "Boom Barriers",     tint: colors.brand,   scanOnly: false },
+  { id: "Deliveries", title: "Deliveries",        tint: colors.success, scanOnly: false },
 ] as const;
 
 const HomeScreen = ({ onNavigate }: HomeScreenProps) => {
-  const { societyId, societyName } = useAuth();
+  const { societyId, societyName, gateEntryMode } = useAuth();
 
   const [recent, setRecent] = useState<EntryLog[]>([]);
   const [pending, setPending] = useState(0);
@@ -98,31 +105,34 @@ const HomeScreen = ({ onNavigate }: HomeScreenProps) => {
         <Text style={styles.date}>{today}</Text>
       </View>
 
-      {/* The guard's most frequent action, and the biggest thing here. */}
-      <Pressable
-        style={({ pressed }) => [styles.scanCta, pressed && styles.pressed]}
-        onPress={() => onNavigate("Scan")}
-        accessibilityRole="button"
-        accessibilityLabel="Scan a QR code"
-      >
-        <Text style={styles.scanIcon}>⬚</Text>
-        <View style={styles.flex}>
-          <Text style={styles.scanTitle}>Scan QR</Text>
-          <Text style={styles.scanSub}>Visitor pass, vehicle or staff card</Text>
-        </View>
-      </Pressable>
+      {/* The two things that happen at a gate, side by side and equal.
+          Almost everyone arriving is either a visitor or a delivery,
+          and which one is obvious before the guard looks at the phone —
+          so neither should be the default and neither should be below
+          the fold. */}
+      <View style={styles.gateRow}>
+        <Pressable
+          style={({ pressed }) => [styles.gateBox, styles.gateVisitor, pressed && styles.pressed]}
+          onPress={() => onNavigate("Visitor")}
+          accessibilityRole="button"
+          accessibilityLabel="Visitor at the gate"
+        >
+          <Text style={styles.gateIcon}>🚶</Text>
+          <Text style={styles.gateTitle}>Visitor</Text>
+          <Text style={styles.gateSub}>Scan a pass or register one</Text>
+        </Pressable>
 
-      {/* Register Delivery sits directly under Scan, where it was put
-          on the website because it is a guard's second-most-used
-          action. Same position here. */}
-      <Pressable
-        style={({ pressed }) => [styles.deliveryCta, pressed && styles.pressed]}
-        onPress={() => onNavigate("Deliveries")}
-        accessibilityRole="button"
-      >
-        <Text style={styles.deliveryIcon}>📦</Text>
-        <Text style={styles.deliveryText}>Register a Delivery</Text>
-      </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.gateBox, styles.gateDelivery, pressed && styles.pressed]}
+          onPress={() => onNavigate("Deliveries")}
+          accessibilityRole="button"
+          accessibilityLabel="Register a delivery"
+        >
+          <Text style={styles.gateIcon}>📦</Text>
+          <Text style={styles.gateTitle}>Delivery</Text>
+          <Text style={styles.gateSub}>Register an agent</Text>
+        </Pressable>
+      </View>
 
       <View style={styles.statRow}>
         <Stat label="Waiting approval" value={pending} tint={colors.warning} />
@@ -130,7 +140,7 @@ const HomeScreen = ({ onNavigate }: HomeScreenProps) => {
       </View>
 
       <View style={styles.tileGrid}>
-        {TILES.map((tile) => (
+        {TILES.filter((t) => !(t.scanOnly && gateEntryMode === "rfid")).map((tile) => (
           <Pressable
             key={tile.id}
             style={({ pressed }) => [styles.tile, pressed && styles.pressed]}
@@ -185,24 +195,17 @@ const styles = StyleSheet.create({
   society: { color: colors.text, fontSize: type.title, fontWeight: "700" },
   date: { color: colors.textMuted, fontSize: type.label, marginTop: space.xs },
 
-  scanCta: {
-    flexDirection: "row", alignItems: "center", gap: space.lg,
-    minHeight: 96, padding: space.lg,
-    backgroundColor: colors.surfaceRaised,
-    borderWidth: 2, borderColor: colors.brand, borderRadius: radius.lg,
+  gateRow: { flexDirection: "row", gap: space.md },
+  gateBox: {
+    flex: 1, minHeight: 132, padding: space.lg,
+    alignItems: "center", justifyContent: "center", gap: space.xs,
+    borderRadius: radius.lg, borderWidth: 2,
   },
-  scanIcon: { fontSize: 40, color: colors.brandInk },
-  scanTitle: { color: colors.text, fontSize: type.title, fontWeight: "700" },
-  scanSub: { color: colors.textMuted, fontSize: type.label, marginTop: 2 },
-
-  deliveryCta: {
-    flexDirection: "row", alignItems: "center", gap: space.md,
-    minHeight: TOUCH, paddingHorizontal: space.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
-  },
-  deliveryIcon: { fontSize: 22 },
-  deliveryText: { color: colors.text, fontSize: type.heading, fontWeight: "600" },
+  gateVisitor: { backgroundColor: colors.brandBg, borderColor: colors.brand },
+  gateDelivery: { backgroundColor: colors.successBg, borderColor: colors.success },
+  gateIcon: { fontSize: 36 },
+  gateTitle: { color: colors.text, fontSize: type.title, fontWeight: "800" },
+  gateSub: { color: colors.textMuted, fontSize: type.caption, textAlign: "center" },
 
   statRow: { flexDirection: "row", gap: space.md },
   stat: {

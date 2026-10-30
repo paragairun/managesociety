@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 import LoginScreen from "@/screens/LoginScreen";
 import HomeScreen from "@/screens/HomeScreen";
 import ScanScreen from "@/screens/ScanScreen";
+import VisitorScreen from "@/screens/VisitorScreen";
 import ApprovalsScreen from "@/screens/ApprovalsScreen";
 import LiveInsideScreen from "@/screens/LiveInsideScreen";
 import BarriersScreen from "@/screens/BarriersScreen";
@@ -64,7 +65,7 @@ const useAuthRefreshOnForeground = () => {
 };
 
 const Shell = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, gateEntryMode } = useAuth();
   useAuthRefreshOnForeground();
 
   // One spinner covering both "is there a session" and "what is this
@@ -100,7 +101,21 @@ const Shell = () => {
           <HomeScreen onNavigate={(screen) => navigation.navigate(screen as never)} />
         )}
       </Drawer.Screen>
-      <Drawer.Screen name="Scan" component={ScanScreen} options={{ title: "Search & Scan" }} />
+      <Drawer.Screen name="Visitor" options={{ title: "Visitor at the Gate" }}>
+        {({ navigation }) => (
+          <VisitorScreen onScan={() => navigation.navigate("Scan" as never)} />
+        )}
+      </Drawer.Screen>
+
+      {/* Scanning is withheld entirely on a society using RFID boom
+          barriers: nobody there scans anything, and a dead entry in the
+          drawer is worse than a missing one.
+          VisitorScreen offers its scan option on exactly the same
+          condition — both ask @core/visitorForm — so it can never
+          navigate to a route that is not registered. */}
+      {gateEntryMode === "rfid" ? null : (
+        <Drawer.Screen name="Scan" component={ScanScreen} options={{ title: "Search & Scan" }} />
+      )}
       <Drawer.Screen name="Approvals" component={ApprovalsScreen} options={{ title: "Pending Approvals" }} />
       <Drawer.Screen name="Live" component={LiveInsideScreen} options={{ title: "Live Inside" }} />
       <Drawer.Screen name="Barriers" component={BarriersScreen} options={{ title: "Boom Barriers" }} />

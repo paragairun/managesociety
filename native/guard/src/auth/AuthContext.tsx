@@ -27,6 +27,15 @@ export interface AuthState {
   societyId: string | null;
   societyName: string | null;
   societySlug: string | null;
+  /**
+   * How vehicles get through this society's gate.
+   *
+   * A society on RFID boom barriers — Park+ and the like — never scans
+   * a QR sticker, so the Scan button is dead weight on a guard's home
+   * screen. Loaded here with the society rather than per screen,
+   * because it decides which screens exist at all.
+   */
+  gateEntryMode: "qr_sticker" | "rfid";
   /** True until the first session check AND its role lookup finish. */
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
@@ -48,6 +57,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [societyId, setSocietyId] = useState<string | null>(null);
   const [societyName, setSocietyName] = useState<string | null>(null);
   const [societySlug, setSocietySlug] = useState<string | null>(null);
+  const [gateEntryMode, setGateEntryMode] = useState<"qr_sticker" | "rfid">("qr_sticker");
   const [loading, setLoading] = useState(true);
 
   // Guards against a slow lookup for a signed-out user overwriting the
@@ -65,14 +75,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     let name: string | null = null;
     let slug: string | null = null;
+    let mode: "qr_sticker" | "rfid" = "qr_sticker";
     if (nextSocietyId) {
-      const { data: society } = await supabase
-        .from("societies").select("name, slug").eq("id", nextSocietyId).maybeSingle();
+      // societies.gate_entry_mode is newer than the generated types.ts,
+      // so `.select()` narrows the whole row to an error type. Cast the
+      // CLIENT rather than the row, as usePushNotifications.ts and
+      // evDb.ts do: regenerating types.ts deletes this and nothing else.
+      // The column is defined in
+      // supabase/schema/society_units_and_gate_mode.sql.
+      const db = supabase as unknown as {
+        from: (table: string) => {
+          select: (cols: string) => {
+            eq: (col: string, val: string) => {
+              maybeSingle: () => Promise<{
+                data: { name?: string; slug?: string; gate_entry_mode?: string } | null;
+              }>;
+            };
+          };
+        };
+      };
+      const { data: society } = await db
+        .from("societies")
+        .select("name, slug, gate_entry_mode")
+        .eq("id", nextSocietyId).maybeSingle();
       name = society?.name ?? null;
       slug = society?.slug ?? null;
+      // Defaults to qr_sticker rather than hiding the scanner: a
+      // missing or unreadable value should leave the guard with MORE
+      // tools, not fewer.
+      mode = society?.gate_entry_mode === "rfid" ? "rfid" : "qr_sticker";
     }
 
-    return { nextRoles, nextSocietyId, name, slug };
+    return { nextRoles, nextSocietyId, name, slug, mode };
   }, []);
 
   const applySession = useCallback((next: Session | null) => {
@@ -87,18 +121,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSocietyId(null);
       setSocietyName(null);
       setSocietySlug(null);
+      setGateEntryMode("qr_sticker");
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    void loadProfile(userId).then(({ nextRoles, nextSocietyId, name, slug }) => {
+    void loadProfile(userId).then(({ nextRoles, nextSocietyId, name, slug, mode }) => {
       // Another sign-in overtook this one.
       if (latestFor.current !== userId) return;
       setRoles(nextRoles);
       setSocietyId(nextSocietyId);
       setSocietyName(name);
       setSocietySlug(slug);
+      setGateEntryMode(mode);
       setLoading(false);
     });
   }, [loadProfile]);
@@ -147,7 +183,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ session, user, roles, societyId, societyName, societySlug, loading, signIn, signOut }}
+      value={{
+        session, user, roles, societyId, societyName, societySlug,
+        gateEntryMode, loading, signIn, signOut,
+      }}
     >
       {children}
     </AuthContext.Provider>

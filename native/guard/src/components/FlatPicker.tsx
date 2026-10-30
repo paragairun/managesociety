@@ -4,7 +4,7 @@ import {
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import {
-  parseStoredStructure, allWings, flatsForWing, towerForWing,
+  parseStoredStructure, allWings, flatsForWing, towerForWing, structureFields,
   type NormalizedTower, type NormalizedStructure,
 } from "@core/societyStructure";
 import { colors, radius, space, TOUCH, type } from "@/theme";
@@ -16,8 +16,15 @@ interface Props {
   onChange: (wing: string, flatNumber: string) => void;
 }
 
-/** How many flat chips to show before asking the guard to narrow it down. */
-const MAX_CHIPS = 24;
+/**
+ * Above this many flats, a filter box appears above the list.
+ *
+ * The list itself is never truncated — every flat is always reachable
+ * by scrolling. An earlier version capped it at 24 and left the rest
+ * unreachable unless the guard typed, which at a gate means a guard who
+ * does not know a filter is needed simply cannot find flat 1204.
+ */
+const FILTER_ABOVE = 24;
 
 /**
  * Tower → Wing → Flat, from the society's configured structure.
@@ -67,12 +74,24 @@ const FlatPicker = ({ societyId, wing, flatNumber, onChange }: Props) => {
     () => allWings(towers).filter((w) => w.tower_name === tower).map((w) => w.wing),
     [towers, tower],
   );
-  const flats = useMemo(() => (wing ? flatsForWing(towers, wing) : []), [towers, wing]);
+  const flats = useMemo(() => {
+    if (wing) return flatsForWing(towers, wing);
+    // A society with one wing hides the wing picker entirely, so there
+    // is no wing selected to list flats for. Fall back to the only
+    // wing there is, which is what the guard means.
+    const only = allWings(towers);
+    return only.length === 1 ? flatsForWing(towers, only[0].wing) : [];
+  }, [towers, wing]);
+
   const shownFlats = useMemo(() => {
     const q = flatFilter.trim();
-    const matching = q ? flats.filter((f) => f.includes(q)) : flats;
-    return matching.slice(0, MAX_CHIPS);
+    // Filtered, never truncated. Every flat stays reachable by
+    // scrolling, because a guard who does not know a filter exists
+    // must still be able to find flat 1204.
+    return q ? flats.filter((f) => f.includes(q)) : flats;
   }, [flats, flatFilter]);
+
+  const fields = structureFields(towers);
 
   if (loading) {
     return <ActivityIndicator color={colors.brand} style={styles.loading} />;
@@ -110,37 +129,66 @@ const FlatPicker = ({ societyId, wing, flatNumber, onChange }: Props) => {
     );
   }
 
+  // A society with one tower, or one wing, does not get a picker for
+  // it: that is a dropdown with one option that a guard taps past at
+  // every gate entry. structureFields decides, from the same rule the
+  // website and the resident app use.
+  const needsTower = fields.tower;
+  const needsWing = fields.wing;
+
+  // With no pickers above it, the flat list is the whole control and
+  // should be shown immediately rather than waiting on a wing.
+  const showFlats = (!needsWing && !needsTower) || !!wing;
+
+  /**
+   * The wing to SAVE, which is not always the one shown.
+   *
+   * A single-wing society hides the picker, but entry_logs,
+   * delivery_visits and the flats table all still carry a wing, and the
+   * guard app must not write an empty one — that flat would then match
+   * nothing when a resident's app looks for its own deliveries. So the
+   * only wing there is gets filled in silently.
+   */
+  const soleWing = allWings(towers).length === 1 ? allWings(towers)[0].wing : "";
+  const wingToSave = wing || soleWing;
+
   return (
     <View style={styles.wrap}>
-      <Text style={styles.subLabel}>Tower</Text>
-      <ChipRow
-        options={towerNames}
-        selected={tower}
-        onSelect={(t) => { setTower(t); setFlatFilter(""); onChange("", ""); }}
-      />
+      {needsTower ? (
+        <>
+          <Text style={styles.subLabel}>Tower</Text>
+          <ChipRow
+            options={towerNames}
+            selected={tower}
+            onSelect={(t) => { setTower(t); setFlatFilter(""); onChange("", ""); }}
+          />
+        </>
+      ) : null}
 
-      {tower ? (
+      {needsWing && (tower || !needsTower) ? (
         <>
           <Text style={styles.subLabel}>Wing</Text>
           <ChipRow
-            options={wingsHere}
+            options={needsTower ? wingsHere : allWings(towers).map((w) => w.wing)}
             selected={wing || null}
             onSelect={(w) => { setFlatFilter(""); onChange(w, ""); }}
           />
         </>
       ) : null}
 
-      {wing ? (
+      {showFlats ? (
         <>
           <Text style={styles.subLabel}>Flat</Text>
           {flatNumber ? (
-            <Pressable style={styles.chosen} onPress={() => onChange(wing, "")}>
-              <Text style={styles.chosenText}>{wing}-{flatNumber}</Text>
+            <Pressable style={styles.chosen} onPress={() => onChange(wingToSave, "")}>
+              <Text style={styles.chosenText}>
+                {needsWing && wingToSave ? `${wingToSave}-${flatNumber}` : flatNumber}
+              </Text>
               <Text style={styles.chosenChange}>change</Text>
             </Pressable>
           ) : (
             <>
-              {flats.length > MAX_CHIPS ? (
+              {flats.length > FILTER_ABOVE ? (
                 <TextInput
                   style={styles.input}
                   value={flatFilter}
@@ -154,7 +202,7 @@ const FlatPicker = ({ societyId, wing, flatNumber, onChange }: Props) => {
               <ChipRow
                 options={shownFlats}
                 selected={null}
-                onSelect={(f) => onChange(wing, f)}
+                onSelect={(f) => onChange(wingToSave, f)}
                 wrap
               />
               {shownFlats.length === 0 ? (
