@@ -170,3 +170,70 @@ export const groupVisits = (visits: DeliveryVisit[], query = ""): DeliveryGroups
     total: filtered.length,
   };
 };
+
+// ─── The resident's side ────────────────────────────────────────────────────
+
+/**
+ * How far back a resident's delivery list reaches.
+ *
+ * A day. Anything older is either finished or expired, and a resident
+ * scrolling yesterday's parcels is not the job this screen does.
+ */
+export const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export interface ResidentFlat {
+  wing: string;
+  flat_number: string;
+}
+
+/**
+ * The PostgREST `.or()` filter matching any of a resident's flats.
+ *
+ * A resident may hold several flats, and a delivery belongs to a flat
+ * rather than to them, so the query is "wing A and flat 1201, OR wing B
+ * and flat 302, OR ...".
+ *
+ * Values are quoted, which the website's inline version did not do. An
+ * unquoted wing containing a comma or a parenthesis does not fail — it
+ * silently reshapes the filter into a different query, and a resident
+ * would be shown another flat's deliveries or none of their own.
+ * Society structures are admin-entered free text, so this is reachable
+ * without anyone doing anything strange.
+ */
+export function flatMatchFilter(flats: ResidentFlat[]): string | null {
+  if (flats.length === 0) return null;
+  const quote = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  return flats
+    .map((f) => `and(wing.eq.${quote(f.wing)},flat_number.eq.${quote(f.flat_number)})`)
+    .join(",");
+}
+
+export interface DeliveryDecisionPorts {
+  /** Returns an error message, or null on success. */
+  setDecision(visitId: string, status: "approved" | "rejected", decidedBy: string | null): Promise<string | null>;
+}
+
+export type DecisionResult = { ok: true } | { ok: false; error: string };
+
+/** True when nothing was saved. */
+export function decisionFailed(r: DecisionResult): r is { ok: false; error: string } {
+  return !r.ok;
+}
+
+/**
+ * Approve or reject a delivery waiting at the gate.
+ *
+ * Records WHO decided, not just what was decided. A flat can have
+ * several logins — the primary resident plus family and tenant
+ * accounts, any of which may answer — and "the delivery was approved"
+ * without a name is not something anyone can follow up on later.
+ */
+export async function decideDelivery(
+  ports: DeliveryDecisionPorts,
+  visitId: string,
+  approve: boolean,
+  decidedBy: string | null,
+): Promise<DecisionResult> {
+  const error = await ports.setDecision(visitId, approve ? "approved" : "rejected", decidedBy);
+  return error ? { ok: false, error } : { ok: true };
+}

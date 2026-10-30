@@ -70,6 +70,27 @@ const DrainPayload = z.object({
 
 const SinglePayload = z.object({ event_id: z.string().uuid() });
 
+/**
+ * Which Android channel an event belongs in.
+ *
+ * MIRRORS channelForEvent in src/lib/pushRouting.ts, which the native
+ * apps use to CREATE these channels. Edge functions are deployed
+ * separately from the website and cannot import from src/, so this is a
+ * deliberate copy — and pushRouting.test.ts reads this file to check the
+ * two have not drifted.
+ */
+const GATE_EVENTS = new Set([
+  "delivery.at_gate",
+  "visitor.at_gate",
+  "gate.unregistered_vehicle",
+]);
+const GATE_CHANNEL_ID = "managesociety-gate";
+const DEFAULT_CHANNEL_ID = "managesociety-default";
+
+function channelForEvent(eventKey: string | null | undefined): string {
+  return eventKey && GATE_EVENTS.has(eventKey) ? GATE_CHANNEL_ID : DEFAULT_CHANNEL_ID;
+}
+
 interface OutboxRow {
   id: string;
   recipient_user_ids: string[];
@@ -348,10 +369,14 @@ Deno.serve(async (req) => {
                 // worthless delivered twenty minutes late.
                 priority: "high",
                 notification: {
-                  // Must match the channel the app creates, or Android
-                  // 8+ silently drops it into a default channel with no
-                  // sound. See usePushNotifications.ts.
-                  channel_id: "managesociety-default",
+                  // Must match a channel the app creates, or Android 8+
+                  // silently drops it into a system default with no
+                  // sound. Which channel depends on the event: someone
+                  // standing at a gate goes to the loud one, a bill does
+                  // not. The mapping is shared with the apps in
+                  // src/lib/pushRouting.ts (channelForEvent) so both
+                  // sides cannot disagree about the id.
+                  channel_id: channelForEvent(row.event_key),
                   sound: "default",
                 },
               },

@@ -3,6 +3,7 @@ import {
   DELIVERY_TYPES, deliveryIcon, deliveryLabel, statusDisplay,
   emptyDraft, normalizeMobile, validateDraft, draftToRow,
   minutesLeft, matchesQuery, groupVisits,
+  flatMatchFilter, decideDelivery, decisionFailed,
   type DeliveryVisit, type DeliveryDraft,
 } from "./deliveries";
 
@@ -196,5 +197,70 @@ describe("grouping the list", () => {
     expect(g.pending.map((v) => v.id)).toEqual(["p2"]);
     expect(g.approved).toEqual([]);
     expect(g.total).toBe(1);
+  });
+});
+
+describe("matching a resident's flats", () => {
+  it("builds an OR of flat pairs", () => {
+    expect(flatMatchFilter([{ wing: "A", flat_number: "1201" }]))
+      .toBe('and(wing.eq."A",flat_number.eq."1201")');
+  });
+
+  it("joins several flats, since a resident may hold more than one", () => {
+    expect(flatMatchFilter([
+      { wing: "A", flat_number: "1201" },
+      { wing: "B", flat_number: "302" },
+    ])).toBe('and(wing.eq."A",flat_number.eq."1201"),and(wing.eq."B",flat_number.eq."302")');
+  });
+
+  it("returns null for a resident with no flats, rather than an empty filter", () => {
+    // An empty `.or()` string is not "match nothing" — PostgREST rejects
+    // it, and a caller that ignored the error would fall back to the
+    // unfiltered query and show the whole society's deliveries.
+    expect(flatMatchFilter([])).toBeNull();
+  });
+
+  it("quotes values, so a comma in a wing cannot reshape the query", () => {
+    // Society structures are admin-entered free text. Unquoted, this
+    // does not fail — it silently becomes a different query.
+    const f = flatMatchFilter([{ wing: "A,B", flat_number: "12)01" }]);
+    expect(f).toBe('and(wing.eq."A,B",flat_number.eq."12)01")');
+  });
+
+  it("escapes a quote inside a value", () => {
+    expect(flatMatchFilter([{ wing: 'A"X', flat_number: "1" }]))
+      .toBe('and(wing.eq."A""X",flat_number.eq."1")');
+  });
+});
+
+describe("deciding a delivery", () => {
+  it("approves, recording who decided", () => {
+    const calls: unknown[][] = [];
+    const ports = { setDecision: async (...a: unknown[]) => { calls.push(a); return null; } };
+    return decideDelivery(ports as never, "v1", true, "user-9").then((r) => {
+      expect(r).toEqual({ ok: true });
+      // A flat can have several logins, any of which may answer. "It was
+      // approved" with no name is not something anyone can follow up on.
+      expect(calls[0]).toEqual(["v1", "approved", "user-9"]);
+    });
+  });
+
+  it("rejects", async () => {
+    const calls: unknown[][] = [];
+    const ports = { setDecision: async (...a: unknown[]) => { calls.push(a); return null; } };
+    await decideDelivery(ports as never, "v1", false, "user-9");
+    expect(calls[0]).toEqual(["v1", "rejected", "user-9"]);
+  });
+
+  it("reports a failure rather than claiming success", async () => {
+    const ports = { setDecision: async () => "row level security" };
+    const r = await decideDelivery(ports as never, "v1", true, null);
+    expect(decisionFailed(r)).toBe(true);
+    expect(r).toEqual({ ok: false, error: "row level security" });
+  });
+
+  it("tolerates an unknown decider", async () => {
+    const ports = { setDecision: async () => null };
+    expect(await decideDelivery(ports as never, "v1", true, null)).toEqual({ ok: true });
   });
 });

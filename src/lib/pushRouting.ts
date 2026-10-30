@@ -105,10 +105,68 @@ export function resolvePushTarget(data: PushData, currentRole: PushRole): PushTa
  */
 export const PUSH_CHANNEL = {
   id: "managesociety-default",
-  name: "Society alerts",
-  description: "Visitors, deliveries, approvals and bills",
-  // 5 is IMPORTANCE_HIGH: a heads-up banner with sound. A visitor
-  // waiting at the gate is worth interrupting for.
+  name: "Society notices",
+  description: "Bills, announcements, approvals and everything else",
+  // 4 is IMPORTANCE_DEFAULT: it makes a sound and appears in the
+  // shade, but does not shove a banner over whatever the person is
+  // doing. A bill being issued does not warrant that.
+  importance: 4 as const,
+  visibility: 1 as const,
+};
+
+/**
+ * The channel for someone physically waiting at the gate.
+ *
+ * Separate from PUSH_CHANNEL on purpose, for two reasons.
+ *
+ * It is louder: MAX importance, a long double-buzz pattern meant to be
+ * felt through a pocket. A delivery agent standing at the gate for two
+ * minutes is a different kind of message from a maintenance notice, and
+ * it was the one that kept being missed.
+ *
+ * And it is separately MUTEABLE. Android lets people silence a channel
+ * individually, so a resident who is tired of bill reminders can mute
+ * those without also losing the thing their neighbours will be annoyed
+ * about them missing. One channel for everything makes that an
+ * all-or-nothing choice, and people choose nothing.
+ *
+ * A channel's importance, sound and vibration are fixed when it is
+ * created — changing them in code later does nothing until the app is
+ * reinstalled — so these values are effectively permanent once shipped.
+ */
+export const GATE_CHANNEL = {
+  id: "managesociety-gate",
+  name: "Someone at the gate",
+  description: "A delivery or visitor waiting for you to answer",
+  // 5 is IMPORTANCE_HIGH/MAX: a heads-up banner with sound.
   importance: 5 as const,
   visibility: 1 as const,
 };
+
+/**
+ * Event keys that mean a person is standing at a gate, waiting.
+ *
+ * Deliberately a short, explicit list rather than a pattern match on
+ * the key. "delivery.reviewed" and "visitor.reviewed" are about the
+ * same subjects and must NOT be in it: those tell a guard that an
+ * answer arrived, which is useful but is not worth a maximum-priority
+ * interruption.
+ */
+const GATE_EVENTS = new Set([
+  "delivery.at_gate",
+  "visitor.at_gate",
+  "gate.unregistered_vehicle",
+]);
+
+/**
+ * Which Android channel an event belongs in.
+ *
+ * Shared by the apps, which create the channels, and by
+ * send-push-notification, which addresses messages to them. A message
+ * sent to a channel the app never created lands in a system-made
+ * default with none of these settings — so the two sides agreeing is
+ * the whole point of putting this here.
+ */
+export function channelForEvent(eventKey: string | null | undefined): string {
+  return eventKey && GATE_EVENTS.has(eventKey) ? GATE_CHANNEL.id : PUSH_CHANNEL.id;
+}

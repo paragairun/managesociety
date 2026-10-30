@@ -1,17 +1,21 @@
 import "react-native-gesture-handler";
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { ActivityIndicator, AppState, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
+import {
+  NavigationContainer, DefaultTheme, useNavigationContainerRef,
+} from "@react-navigation/native";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { AuthProvider, useAuth } from "@/auth/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { usePushNotifications } from "@/lib/notifications";
 import { sectionsFor } from "@core/residentAccess";
 import LoginScreen from "@/screens/LoginScreen";
 import HomeScreen from "@/screens/HomeScreen";
+import DeliveriesScreen from "@/screens/DeliveriesScreen";
 import { colors, type } from "@/theme";
 
 /**
@@ -64,10 +68,6 @@ const Placeholder = ({ name }: { name: string }) => (
   </View>
 );
 
-/** Section ids are lower case; drawer route names are capitalised. */
-const routeFor = (sectionId: string) =>
-  sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
-
 const Shell = () => {
   const { user, loading, identity } = useAuth();
   useAuthRefreshOnForeground();
@@ -87,8 +87,6 @@ const Shell = () => {
 
   if (!user) return <LoginScreen />;
 
-  const sections = sectionsFor(identity);
-
   return (
     <Drawer.Navigator
       initialRouteName="Home"
@@ -104,33 +102,84 @@ const Shell = () => {
         sceneStyle: { backgroundColor: colors.background },
       }}
     >
-      {sections.map((section) =>
-        section.id === "home" ? (
-          <Drawer.Screen key="home" name="Home" options={{ title: section.title }}>
-            {({ navigation }) => (
-              <HomeScreen onNavigate={(screen) => navigation.navigate(screen as never)} />
-            )}
+      {sectionsFor(identity).map((section) => {
+        if (section.id === "home") {
+          return (
+            <Drawer.Screen key="home" name="Home" options={{ title: section.title }}>
+              {({ navigation }) => (
+                <HomeScreen onNavigate={(screen) => navigation.navigate(screen as never)} />
+              )}
+            </Drawer.Screen>
+          );
+        }
+        const route = section.id.charAt(0).toUpperCase() + section.id.slice(1);
+        return (
+          <Drawer.Screen key={section.id} name={route} options={{ title: section.title }}>
+            {section.id === "deliveries"
+              ? () => <DeliveriesScreen />
+              : () => <Placeholder name={section.title} />}
           </Drawer.Screen>
-        ) : (
-          <Drawer.Screen
-            key={section.id}
-            name={routeFor(section.id)}
-            options={{ title: section.title }}
-          >
-            {() => <Placeholder name={section.title} />}
-          </Drawer.Screen>
-        ),
-      )}
+        );
+      })}
     </Drawer.Navigator>
   );
 };
 
+/**
+ * Push registration and notification taps.
+ *
+ * Mounted INSIDE the auth provider but OUTSIDE the navigator, with the
+ * container's own ref, because of the journey this exists to serve:
+ * app closed, delivery arrives, resident taps the notification. The tap
+ * is delivered within milliseconds of launch, long before any screen
+ * has mounted and usually before the session has resolved. A listener
+ * living in a screen would never hear it — which is exactly how this
+ * broke on the web build.
+ *
+ * So the target is captured here and held until navigation is ready,
+ * then replayed once.
+ */
+const PushBridge = ({
+  navigationRef,
+}: {
+  navigationRef: ReturnType<typeof useNavigationContainerRef>;
+}) => {
+  const { user } = useAuth();
+  const pending = useRef<string | null>(null);
+
+  const openRoute = useCallback((route: string) => {
+    if (navigationRef.isReady()) navigationRef.navigate(route as never);
+    else pending.current = route;
+  }, [navigationRef]);
+
+  usePushNotifications(user?.id, { onOpen: openRoute });
+
+  // The navigator may become ready after a tap was captured — on a cold
+  // start it always does — so a parked target is flushed here.
+  useEffect(() => {
+    if (!user) return;
+    const timer = setInterval(() => {
+      if (pending.current && navigationRef.isReady()) {
+        const route = pending.current;
+        pending.current = null;
+        navigationRef.navigate(route as never);
+      }
+    }, 300);
+    return () => clearInterval(timer);
+  }, [user, navigationRef]);
+
+  return null;
+};
+
 export default function App() {
+  const navigationRef = useNavigationContainerRef();
+
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <NavigationContainer
+            ref={navigationRef}
             theme={{
               ...DefaultTheme,
               colors: {
@@ -144,6 +193,7 @@ export default function App() {
             }}
           >
             <StatusBar style="dark" />
+            <PushBridge navigationRef={navigationRef} />
             <Shell />
           </NavigationContainer>
         </AuthProvider>

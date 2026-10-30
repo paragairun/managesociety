@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { resolvePushTarget, isPushRole, PUSH_VIEWS, PUSH_CHANNEL } from "./pushRouting";
+import {
+  resolvePushTarget, isPushRole, PUSH_VIEWS,
+  PUSH_CHANNEL, GATE_CHANNEL, channelForEvent,
+} from "./pushRouting";
 
 // vitest runs from the project root, so resolve from there rather than
 // from import.meta.url, which does not give a usable filesystem path
@@ -119,11 +122,65 @@ describe("PUSH_CHANNEL", () => {
   it("matches the channel_id the edge function sends to", () => {
     // Android 8+ takes sound and importance from the channel, so a
     // mismatch here means every notification arrives silently.
+    // The function now picks a channel per event rather than hardcoding
+    // one, so what has to match is the two channel IDS and the event
+    // list behind them. An edge function cannot import from src/, so the
+    // copy there is deliberate and this is what keeps it honest.
     const fn = read("supabase", "functions", "send-push-notification", "index.ts");
-    expect(fn).toContain(`channel_id: "${PUSH_CHANNEL.id}"`);
+    expect(fn).toContain(`"${PUSH_CHANNEL.id}"`);
+    expect(fn).toContain(`"${GATE_CHANNEL.id}"`);
+    expect(fn).toContain("channel_id: channelForEvent(row.event_key)");
+
+    // Every event the shared mapping sends to the gate channel must
+    // appear in the function's own copy of the list.
+    for (const key of ["delivery.at_gate", "visitor.at_gate", "gate.unregistered_vehicle"]) {
+      expect(channelForEvent(key)).toBe(GATE_CHANNEL.id);
+      expect(fn).toContain(`"${key}"`);
+    }
   });
 
-  it("asks for a heads-up banner", () => {
-    expect(PUSH_CHANNEL.importance).toBe(5);
+  it("reserves the heads-up banner for someone actually waiting", () => {
+    // This used to assert PUSH_CHANNEL.importance === 5, back when one
+    // channel carried everything. Splitting them is the point: a bill
+    // should not shove a banner over whatever the resident is doing,
+    // and a delivery agent at the gate should.
+    expect(GATE_CHANNEL.importance).toBe(5);
+    expect(PUSH_CHANNEL.importance).toBe(4);
+  });
+});
+
+describe("choosing a notification channel", () => {
+  it("sends someone waiting at the gate to the loud channel", () => {
+    expect(channelForEvent("delivery.at_gate")).toBe(GATE_CHANNEL.id);
+    expect(channelForEvent("visitor.at_gate")).toBe(GATE_CHANNEL.id);
+    expect(channelForEvent("gate.unregistered_vehicle")).toBe(GATE_CHANNEL.id);
+  });
+
+  it("does NOT treat a decision as an interruption", () => {
+    // "delivery.reviewed" tells a guard the resident answered. Useful,
+    // but nobody is standing anywhere waiting on it.
+    expect(channelForEvent("delivery.reviewed")).toBe(PUSH_CHANNEL.id);
+    expect(channelForEvent("visitor.reviewed")).toBe(PUSH_CHANNEL.id);
+  });
+
+  it("puts ordinary notices on the default channel", () => {
+    for (const key of ["bill.issued", "bill.overdue", "payment.recorded",
+      "amenity_booking.created", "staff.qr_issued", "test.manual"]) {
+      expect(channelForEvent(key)).toBe(PUSH_CHANNEL.id);
+    }
+  });
+
+  it("falls back to the default for an unknown or missing key", () => {
+    expect(channelForEvent("something.new")).toBe(PUSH_CHANNEL.id);
+    expect(channelForEvent(null)).toBe(PUSH_CHANNEL.id);
+    expect(channelForEvent(undefined)).toBe(PUSH_CHANNEL.id);
+    expect(channelForEvent("")).toBe(PUSH_CHANNEL.id);
+  });
+
+  it("keeps the two channels distinct", () => {
+    // Same id would silently merge them, and the gate alert would
+    // inherit whichever settings were registered first.
+    expect(GATE_CHANNEL.id).not.toBe(PUSH_CHANNEL.id);
+    expect(GATE_CHANNEL.importance).toBeGreaterThan(PUSH_CHANNEL.importance);
   });
 });
