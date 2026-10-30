@@ -175,6 +175,36 @@ jobs:
           fi
           echo "Firebase client found for ${APP_ID}."
 
+      # ────────────────────────────────────────────────────────────────────
+      # SIZE
+      #
+      # The first build came out at ~270 MB, which is normal for an
+      # unconstrained debug build and still far too big to download onto a
+      # phone repeatedly. Three things make it that large, and the first is
+      # most of it:
+      #
+      #   Four CPU architectures. Expo's gradle.properties ships
+      #     reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64, so the
+      #     APK carries four complete copies of React Native's native
+      #     libraries. x86 and x86_64 exist for emulators -- no Android phone
+      #     sold in years uses them -- and armeabi-v7a is 32-bit, which only
+      #     matters for hardware older than roughly 2017. The template
+      #     documents -PreactNativeArchitectures as the supported override.
+      #
+      #   Unstripped debug symbols in those native libraries. The release
+      #     variant strips them; a debug build cannot, because they are what
+      #     makes a native crash readable.
+      #
+      #   The dev launcher and Hermes debugger, which only exist in the
+      #     development build and are the point of it.
+      #
+      # Minification is already on for release (android.enableMinifyInRelease
+      # Builds=true in the template); resource shrinking is not, so this turns
+      # it on. Both are release-only -- R8 on a debug build would strip the
+      # debugging it exists to provide.
+      #
+      # If a gate phone ever refuses the standalone APK, it is 64-bit-only
+      # fallout and armeabi-v7a is the line to check.
       - name: Build the APK
         id: build
         working-directory: ${{ env.APP_DIR }}/android
@@ -191,10 +221,18 @@ jobs:
             # you supply your own, so this comes out installable by hand --
             # which is all a gate phone needs. Play Store signing is a
             # separate job, as it is for the Capacitor apps.
-            ./gradlew assembleRelease
+            #
+            # Both real-phone architectures, since this is the build that goes
+            # on hardware nobody has inventoried.
+            ./gradlew assembleRelease \
+              -PreactNativeArchitectures=arm64-v8a,armeabi-v7a \
+              -Pandroid.enableShrinkResourcesInReleaseBuilds=true
             APK=$(find app/build/outputs/apk/release -name '*.apk' | head -1)
           else
-            ./gradlew assembleDebug
+            # 64-bit ARM only: this build is installed on a known phone for
+            # development, and dropping the other three removes three
+            # quarters of the native payload.
+            ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a
             APK=$(find app/build/outputs/apk/debug -name '*.apk' | head -1)
           fi
           if [[ -z "${APK}" ]]; then
@@ -203,7 +241,15 @@ jobs:
           fi
           mkdir -p ../artifact
           cp "${APK}" "../artifact/managesociety-guard-${BUILD_KIND}.apk"
-          ls -lh ../artifact
+
+          # Reported on the run summary so the next "how big is it?" is
+          # answerable without installing anything.
+          SIZE_MB=$(( $(stat -c %s "../artifact/managesociety-guard-${BUILD_KIND}.apk") / 1048576 ))
+          echo "size_mb=${SIZE_MB}" >> "$GITHUB_OUTPUT"
+          echo "APK is ${SIZE_MB} MB"
+          unzip -l "../artifact/managesociety-guard-${BUILD_KIND}.apk" \
+            | awk '$4 ~ /^lib\/[^\/]+\/.+/ {split($4,p,"/"); s[p[2]]+=$1} END {for (a in s) printf "  %-14s %6.1f MB of native libraries\n", a, s[a]/1048576}' \
+            | sort
 
       # Published as a release asset, NOT only as a build artifact.
       #
@@ -227,6 +273,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BUILD_KIND: ${{ inputs.build || 'development' }}
+          APK_SIZE: ${{ steps.build.outputs.size_mb }}
         run: |
           set -euo pipefail
           case "${BUILD_KIND}" in
@@ -239,7 +286,7 @@ jobs:
           {
             echo "ManageSociety Guard — native ${BUILD_KIND} build"
             echo ""
-            echo "Built from ${GITHUB_SHA} on $(date -u '+%Y-%m-%d %H:%M UTC')."
+            echo "Built from ${GITHUB_SHA} on $(date -u '+%Y-%m-%d %H:%M UTC'). ${APK_SIZE} MB."
             echo ""
             echo "Open this page on the phone and tap the .apk below to install."
             echo "Uninstall the existing \"ManageSociety Guard\" app first: this one"
@@ -283,9 +330,12 @@ jobs:
           BUILD_KIND: ${{ inputs.build || 'development' }}
           APK_URL: ${{ steps.release.outputs.url }}
           APK_PAGE: ${{ steps.release.outputs.page }}
+          APK_SIZE: ${{ steps.build.outputs.size_mb }}
         run: |
           {
             echo "## ManageSociety Guard (native) — ${BUILD_KIND} build"
+            echo ""
+            echo "APK size: **${APK_SIZE} MB**"
             echo ""
             echo "**Install it:** open this on the phone and tap the \`.apk\`:"
             echo ""
