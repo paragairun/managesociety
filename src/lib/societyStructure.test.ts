@@ -362,3 +362,58 @@ describe("addressFor", () => {
     expect(addressFor([], "A", "1201")).toBe("1201");
   });
 });
+
+describe("wing names are unique across the whole society", () => {
+  // Everything downstream resolves a wing by name alone, so a repeat
+  // silently collapses into the first one found: the guard sees the
+  // wrong flat list, and the floor plan stamps one tower's unit types
+  // onto another tower's flats and bills them for it.
+  const wing = (name: string, from = "101", floors = "2") =>
+    ({ wing: name, flat_from: from, flat_to: "", total_floors: floors });
+
+  it("rejects the same wing name in two different towers", () => {
+    const result = normalizeStructure([
+      { tower_name: "T1", wings: [wing("A")] },
+      { tower_name: "T2", wings: [wing("A")] },
+    ], true, "4");
+    expect("error" in result).toBe(true);
+    if ("error" in result) {
+      expect(result.error).toContain("T1");
+      expect(result.error).toContain("T2");
+      expect(result.error).toContain("A");
+    }
+  });
+
+  it("rejects the same wing name twice in one tower", () => {
+    const result = normalizeStructure([
+      { tower_name: "T1", wings: [wing("A"), wing("A")] },
+    ], true, "4");
+    expect("error" in result).toBe(true);
+    if ("error" in result) expect(result.error).toContain("two wings called A");
+  });
+
+  it("catches a repeat that differs only by case or spacing", () => {
+    const result = normalizeStructure([
+      { tower_name: "T1", wings: [wing("A")] },
+      { tower_name: "T2", wings: [wing(" a ")] },
+    ], true, "4");
+    expect("error" in result).toBe(true);
+  });
+
+  it("still accepts distinct wing names across towers", () => {
+    const result = normalizeStructure([
+      { tower_name: "T1", wings: [wing("A")] },
+      { tower_name: "T2", wings: [wing("B")] },
+    ], true, "4");
+    expect("error" in result).toBe(false);
+  });
+
+  it("the suggested fix in the message is itself valid", () => {
+    // The error tells them to try T1-A and T2-A. That had better work.
+    const result = normalizeStructure([
+      { tower_name: "T1", wings: [wing("T1-A")] },
+      { tower_name: "T2", wings: [wing("T2-A")] },
+    ], true, "4");
+    expect("error" in result).toBe(false);
+  });
+});

@@ -124,6 +124,23 @@ export const normalizeStructure = (
   }
 
   const normalizedTowers: NormalizedTower[] = [];
+  /**
+   * Wing names are unique across the WHOLE society, not per tower.
+   *
+   * Everything downstream looks a wing up by name alone —
+   * flatsForWing, towerForWing, addressFor, the guard's flat picker,
+   * and the floor plan that stamps each flat's unit type. Two wings
+   * called "A" in different towers silently collapse into the first
+   * one found: the guard sees the wrong flat list, and the floor plan
+   * would put one tower's unit types onto the other tower's flats and
+   * bill them for it.
+   *
+   * Rejected at the point of entry rather than papered over
+   * downstream, because the alternative is threading a tower name
+   * through every one of those call sites to resolve an ambiguity
+   * that should never have been stored.
+   */
+  const seenWings = new Map<string, string>();
   for (const tower of towers) {
     const towerName = tower.tower_name.trim();
     const allEmpty = tower.wings.every(
@@ -138,6 +155,16 @@ export const normalizeStructure = (
       const isEmpty = !wingName && !w.flat_from.trim() && !w.flat_to.trim() && !w.total_floors.trim();
       if (isEmpty) continue;
       if (!wingName) return { error: `Enter a wing name for ${towerName}` };
+
+      const claimedBy = seenWings.get(wingName);
+      if (claimedBy !== undefined) {
+        return {
+          error: claimedBy === towerName
+            ? `${towerName} has two wings called ${wingName}. Each wing needs its own name.`
+            : `Wing ${wingName} is in both ${claimedBy} and ${towerName}. Wing names must be unique across the whole society — try ${claimedBy}-${wingName} and ${towerName}-${wingName}.`,
+        };
+      }
+      seenWings.set(wingName, towerName);
 
       const from = Number(w.flat_from);
       if (!w.flat_from.trim() || !Number.isFinite(from) || from <= 0)
