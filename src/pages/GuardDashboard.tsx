@@ -303,7 +303,7 @@ const GuardDashboard = () => {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Car className="h-5 w-5 text-primary" />
+          <Car className="h-5 w-5 text-primary-ink" />
           Live Inside ({liveVehicles.length})
         </CardTitle>
       </CardHeader>
@@ -322,7 +322,7 @@ const GuardDashboard = () => {
                   {entry.owner_name} {entry.wing && `• ${entry.wing}-${entry.flat_number}`} • {new Date(entry.entry_time).toLocaleTimeString()}
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => void handleCheckout(entry.id)} className="gap-1 border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground" disabled={processingId === entry.id}>
+              <Button variant="outline" size="sm" onClick={() => void handleCheckout(entry.id)} className="gap-1 border-destructive/50 text-destructive-ink hover:bg-destructive hover:text-destructive-foreground" disabled={processingId === entry.id}>
                 <LogOut className="h-4 w-4" /> Out
               </Button>
             </div>

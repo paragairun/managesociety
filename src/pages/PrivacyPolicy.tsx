@@ -15,7 +15,7 @@ const PrivacyPolicy = () => (
   <div className="min-h-screen bg-background">
     <header className="border-b border-border">
       <div className="max-w-3xl mx-auto px-4 h-16 flex items-center gap-2">
-        <Building2 className="h-5 w-5 text-primary" />
+        <Building2 className="h-5 w-5 text-primary-ink" />
         <Link to="/" className="font-bold text-foreground">{APP_NAME}</Link>
       </div>
     </header>
@@ -102,7 +102,7 @@ const PrivacyPolicy = () => (
       <Section title="Contact Us">
         <p>
           For any questions about this policy or your data, contact us at{" "}
-          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">{SUPPORT_EMAIL}</a>.
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary-ink hover:underline">{SUPPORT_EMAIL}</a>.
         </p>
       </Section>
     </main>

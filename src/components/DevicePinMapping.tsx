@@ -163,7 +163,7 @@ const DevicePinMapping = () => {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="py-8 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+            <div className="py-8 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary-ink" /></div>
           ) : unmapped.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">
               Nothing waiting. IDs appear here the first time someone punches on the

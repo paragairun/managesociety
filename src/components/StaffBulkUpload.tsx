@@ -155,7 +155,7 @@ const StaffBulkUpload = ({ kind, defaultRoleType, onComplete }: Props) => {
         )}
 
         {ignored.length > 0 && (
-          <div className="text-xs text-warning flex items-start gap-1.5">
+          <div className="text-xs text-warning-ink flex items-start gap-1.5">
             <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
             <span>Ignored unrecognised columns: {ignored.join(", ")}</span>
           </div>
@@ -163,7 +163,7 @@ const StaffBulkUpload = ({ kind, defaultRoleType, onComplete }: Props) => {
 
         {errors.length > 0 && (
           <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3">
-            <p className="text-sm font-medium text-destructive mb-1.5">
+            <p className="text-sm font-medium text-destructive-ink mb-1.5">
               {errors.length} row{errors.length === 1 ? "" : "s"} skipped
             </p>
             <ul className="text-xs text-muted-foreground space-y-0.5 max-h-40 overflow-y-auto">
@@ -179,7 +179,7 @@ const StaffBulkUpload = ({ kind, defaultRoleType, onComplete }: Props) => {
           <>
             <div className="rounded-md border border-border overflow-hidden">
               <div className="px-3 py-2 bg-secondary/50 text-sm font-medium flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-success" />
+                <CheckCircle2 className="h-4 w-4 text-success-ink" />
                 {rows.length} ready to import
               </div>
               <div className="max-h-56 overflow-y-auto divide-y divide-border">

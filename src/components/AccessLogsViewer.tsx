@@ -78,7 +78,7 @@ const AccessLogsViewer = () => {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <ClipboardList className="h-5 w-5 text-primary" />
+          <ClipboardList className="h-5 w-5 text-primary-ink" />
           Access Logs
         </CardTitle>
       </CardHeader>

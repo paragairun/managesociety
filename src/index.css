@@ -14,7 +14,10 @@
     --popover-foreground: 230 25% 12%;
 
     --primary: 36 100% 48%;
-    --primary-foreground: 0 0% 100%;
+    /* Dark, not white: white on this amber is 2.32:1 and fails WCAG AA
+       on every primary button in the product. The dark foreground is
+       7.47:1, and it is what the launcher icon does — navy on amber. */
+    --primary-foreground: 230 25% 12%;
 
     --secondary: 220 15% 92%;
     --secondary-foreground: 230 25% 15%;
@@ -23,31 +26,58 @@
     --muted-foreground: 220 10% 40%;
 
     --accent: 160 60% 40%;
-    --accent-foreground: 0 0% 100%;
+    /* White here is 3.17:1; the dark foreground is 5.46:1. */
+    --accent-foreground: 230 25% 12%;
 
     --destructive: 0 72% 51%;
+    /* The one status colour white actually works on: 4.80:1, against
+       3.61:1 for the dark foreground. Kept white on purpose. */
     --destructive-foreground: 0 0% 100%;
 
     --success: 142 71% 40%;
-    --success-foreground: 0 0% 100%;
+    /* White 2.90:1, dark foreground 5.97:1. */
+    --success-foreground: 230 25% 12%;
 
     --warning: 36 100% 48%;
-    --warning-foreground: 0 0% 100%;
+    /* Same amber as --primary, so the same reasoning. */
+    --warning-foreground: 230 25% 12%;
+
+    /* INK VARIANTS — the same hues, legible as TEXT.
+       A status colour that fills a button cannot also be a letterform
+       on a light background: the amber is 2.32:1 on white and the
+       green 2.90:1. Each ink below is its hue darkened to the first
+       lightness clearing 4.5:1 on the page, cards, inputs and muted
+       surfaces alike.
+       Use text-*-ink for type and icons; bg-*, border-* and fills keep
+       the base colour. In the dark theme most inks are identical to
+       their base, because a bright colour on a dark surface already
+       passes — the distinction only earns its keep in light mode. */
+    --primary-ink: 36 100% 29%;
+    --success-ink: 142 71% 27%;
+    --warning-ink: 36 100% 29%;
+    --accent-ink: 160 60% 29%;
+    --destructive-ink: 0 72% 46%;
 
     --border: 220 15% 88%;
     --input: 220 15% 88%;
-    --ring: 36 100% 48%;
+    /* Darker than --primary: the brand amber at 48% is only 2.2:1
+       against the page, so a keyboard focus ring drawn in it is
+       effectively invisible. 38% clears the 3:1 bar WCAG 1.4.11 sets
+       for non-text indicators, on the page, on cards and on inputs.
+       The dark theme needs no such adjustment — the amber is 8.5:1
+       there. */
+    --ring: 36 100% 38%;
 
     --radius: 0.75rem;
 
     --sidebar-background: 220 20% 96%;
     --sidebar-foreground: 230 25% 15%;
     --sidebar-primary: 36 100% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-primary-foreground: 230 25% 12%;
     --sidebar-accent: 220 15% 90%;
     --sidebar-accent-foreground: 230 25% 15%;
     --sidebar-border: 220 15% 86%;
-    --sidebar-ring: 36 100% 48%;
+    --sidebar-ring: 36 100% 38%;
   }
 
   .dark {
@@ -67,19 +97,31 @@
     --secondary-foreground: 210 20% 90%;
 
     --muted: 230 15% 18%;
-    --muted-foreground: 215 15% 55%;
+    /* 55% gives only 4.06:1 on --muted and 3.79:1 on --secondary. 60%
+       is the first step clearing 4.5:1 on every dark surface. */
+    --muted-foreground: 215 15% 60%;
 
     --accent: 160 60% 45%;
     --accent-foreground: 230 25% 10%;
 
     --destructive: 0 72% 51%;
-    --destructive-foreground: 210 20% 95%;
+    /* 210 20% 95% is 4.28:1 here; pure white is 4.80:1. */
+    --destructive-foreground: 0 0% 100%;
 
     --success: 142 71% 45%;
     --success-foreground: 230 25% 10%;
 
     --warning: 36 100% 50%;
     --warning-foreground: 230 25% 10%;
+
+    /* See the note in the light block. Four of these match their base
+       colour exactly — a bright hue on a dark surface already clears
+       4.5:1 — and only the red needed lifting, from 3.1:1 to 4.6:1. */
+    --primary-ink: 36 100% 50%;
+    --success-ink: 142 71% 45%;
+    --warning-ink: 36 100% 50%;
+    --accent-ink: 160 60% 45%;
+    --destructive-ink: 0 72% 68%;
 
     --border: 230 15% 22%;
     --input: 230 15% 22%;

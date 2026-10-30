@@ -75,7 +75,7 @@ const AdminProfile = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <Loader2 className="h-6 w-6 animate-spin text-primary-ink" />
       </div>
     );
   }
@@ -85,7 +85,7 @@ const AdminProfile = () => {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <User className="h-5 w-5 text-primary" /> My Profile
+            <User className="h-5 w-5 text-primary-ink" /> My Profile
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -124,7 +124,7 @@ const AdminProfile = () => {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <KeyRound className="h-5 w-5 text-primary" /> Change Password
+            <KeyRound className="h-5 w-5 text-primary-ink" /> Change Password
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">

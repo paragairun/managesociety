@@ -199,7 +199,7 @@ const SuperAdminDashboard = () => {
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-lg bg-primary/15 flex items-center justify-center">
-              <ShieldCheck className="h-5 w-5 text-primary" />
+              <ShieldCheck className="h-5 w-5 text-primary-ink" />
             </div>
             <div>
               <p className="font-bold text-foreground">Platform Super Admin</p>
@@ -221,7 +221,7 @@ const SuperAdminDashboard = () => {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-primary" /> Pending Society Registrations</CardTitle>
+            <CardTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-primary-ink" /> Pending Society Registrations</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {pending.length === 0 ? (
@@ -269,7 +269,7 @@ const SuperAdminDashboard = () => {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5 text-primary" /> Societies ({societies.length})</CardTitle>
+            <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5 text-primary-ink" /> Societies ({societies.length})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {societies.map((s) => (
@@ -286,7 +286,7 @@ const SuperAdminDashboard = () => {
                         href={appUrl(`/${s.slug}/admin`)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-0.5"
+                        className="text-xs text-primary-ink hover:underline inline-flex items-center gap-1 mt-0.5"
                       >
                         {APP_DOMAIN}/{s.slug}/admin <ExternalLink className="h-3 w-3" />
                       </a>

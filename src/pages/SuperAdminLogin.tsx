@@ -65,7 +65,7 @@ const SuperAdminLogin = () => {
       </div>
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center space-y-3">
-          <div className="mx-auto h-16 w-16 rounded-2xl flex items-center justify-center bg-primary/15 text-primary">
+          <div className="mx-auto h-16 w-16 rounded-2xl flex items-center justify-center bg-primary/15 text-primary-ink">
             <ShieldCheck className="h-8 w-8" />
           </div>
           <CardTitle className="text-xl">Platform Super Admin</CardTitle>
@@ -93,7 +93,7 @@ const SuperAdminLogin = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
-                  <button type="button" onClick={() => { setShowForgot(true); setForgotEmail(email); }} className="text-xs text-primary hover:underline">
+                  <button type="button" onClick={() => { setShowForgot(true); setForgotEmail(email); }} className="text-xs text-primary-ink hover:underline">
                     Forgot password?
                   </button>
                 </div>

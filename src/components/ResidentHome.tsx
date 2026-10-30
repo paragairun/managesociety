@@ -22,13 +22,13 @@ interface ResidentHomeProps {
 const money = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
 const TILES = [
-  { id: "guest", title: "Guest Pass", icon: QrCode, tint: "bg-primary/10 text-primary" },
-  { id: "vehicles", title: "My Vehicles", icon: Car, tint: "bg-accent/10 text-accent" },
-  { id: "dues", title: "My Dues", icon: Wallet, tint: "bg-warning/10 text-warning" },
-  { id: "deliveries", title: "Deliveries", icon: Package, tint: "bg-success/10 text-success" },
-  { id: "ev", title: "EV Charging", icon: Zap, tint: "bg-primary/10 text-primary" },
-  { id: "helps", title: "House Helps", icon: Users, tint: "bg-primary/10 text-primary" },
-  { id: "history", title: "Visit History", icon: ClipboardList, tint: "bg-accent/10 text-accent" },
+  { id: "guest", title: "Guest Pass", icon: QrCode, tint: "bg-primary/10 text-primary-ink" },
+  { id: "vehicles", title: "My Vehicles", icon: Car, tint: "bg-accent/10 text-accent-ink" },
+  { id: "dues", title: "My Dues", icon: Wallet, tint: "bg-warning/10 text-warning-ink" },
+  { id: "deliveries", title: "Deliveries", icon: Package, tint: "bg-success/10 text-success-ink" },
+  { id: "ev", title: "EV Charging", icon: Zap, tint: "bg-primary/10 text-primary-ink" },
+  { id: "helps", title: "House Helps", icon: Users, tint: "bg-primary/10 text-primary-ink" },
+  { id: "history", title: "Visit History", icon: ClipboardList, tint: "bg-accent/10 text-accent-ink" },
 ];
 
 const ResidentHome = ({ displayName, societyName, flats, formatFlat, pendingDeliveries, visitLogs, onNavigate }: ResidentHomeProps) => {
@@ -72,12 +72,12 @@ const ResidentHome = ({ displayName, societyName, flats, formatFlat, pendingDeli
             {outstanding === null ? (
               <p className="text-2xl font-bold text-muted-foreground">—</p>
             ) : (
-              <p className={`text-2xl font-bold ${outstanding > 0 ? "text-foreground" : "text-success"}`}>
+              <p className={`text-2xl font-bold ${outstanding > 0 ? "text-foreground" : "text-success-ink"}`}>
                 {outstanding > 0 ? money(outstanding) : "All clear ✓"}
               </p>
             )}
           </div>
-          <div className="flex items-center gap-1 text-sm text-primary font-medium">
+          <div className="flex items-center gap-1 text-sm text-primary-ink font-medium">
             View <ArrowRight className="h-4 w-4" />
           </div>
         </CardContent>
@@ -114,7 +114,7 @@ const ResidentHome = ({ displayName, societyName, flats, formatFlat, pendingDeli
             onClick={() => onNavigate("amenities")}
             className="flex flex-col items-center gap-2 p-3 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors relative touch-target"
           >
-            <span className="h-11 w-11 rounded-full flex items-center justify-center bg-warning/10 text-warning">
+            <span className="h-11 w-11 rounded-full flex items-center justify-center bg-warning/10 text-warning-ink">
               <Sparkles className="h-5 w-5" />
             </span>
             <span className="text-xs font-medium text-center leading-tight">Amenities</span>
@@ -127,7 +127,7 @@ const ResidentHome = ({ displayName, societyName, flats, formatFlat, pendingDeli
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-muted-foreground">Recent activity</h3>
-            <button onClick={() => onNavigate("history")} className="text-xs text-primary font-medium flex items-center gap-1">
+            <button onClick={() => onNavigate("history")} className="text-xs text-primary-ink font-medium flex items-center gap-1">
               See all <ArrowRight className="h-3 w-3" />
             </button>
           </div>
@@ -137,7 +137,7 @@ const ResidentHome = ({ displayName, societyName, flats, formatFlat, pendingDeli
             <div className="space-y-3">
               {visitLogs.slice(0, 3).map((log) => (
                 <div key={log.id} className="flex items-center gap-3 text-sm">
-                  <span className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${log.exit_time ? "bg-muted text-muted-foreground" : "bg-success/10 text-success"}`}>
+                  <span className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${log.exit_time ? "bg-muted text-muted-foreground" : "bg-success/10 text-success-ink"}`}>
                     {log.exit_time ? <LogOut className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
                   </span>
                   <div className="min-w-0 flex-1">

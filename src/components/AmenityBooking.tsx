@@ -21,9 +21,9 @@ interface AmenityBookingProps {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  pending_approval: "bg-warning/10 text-warning",
-  approved: "bg-success/10 text-success",
-  rejected: "bg-destructive/10 text-destructive",
+  pending_approval: "bg-warning/10 text-warning-ink",
+  approved: "bg-success/10 text-success-ink",
+  rejected: "bg-destructive/10 text-destructive-ink",
   cancelled: "bg-muted text-muted-foreground",
   completed: "bg-secondary text-muted-foreground",
 };
@@ -109,7 +109,7 @@ const AmenityBooking = ({ residentFlats }: AmenityBookingProps) => {
     <div className="space-y-6">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg"><Sparkles className="h-5 w-5 text-primary" /> Book an Amenity</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-lg"><Sparkles className="h-5 w-5 text-primary-ink" /> Book an Amenity</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {amenities.length === 0 ? (
@@ -196,12 +196,12 @@ const AmenityBooking = ({ residentFlats }: AmenityBookingProps) => {
                     <Clock className="h-3.5 w-3.5 ml-2" />
                     {b.start_time.slice(0, 5)}–{b.end_time.slice(0, 5)}
                   </p>
-                  {b.rejection_reason && <p className="text-sm text-destructive mt-1">Rejected: {b.rejection_reason}</p>}
+                  {b.rejection_reason && <p className="text-sm text-destructive-ink mt-1">Rejected: {b.rejection_reason}</p>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_STYLES[b.status]}`}>{b.status.replace("_", " ")}</span>
                   {(b.status === "pending_approval" || b.status === "approved") && (
-                    <Button variant="ghost" size="sm" onClick={() => void cancelBooking(b.id)} className="text-destructive hover:text-destructive">
+                    <Button variant="ghost" size="sm" onClick={() => void cancelBooking(b.id)} className="text-destructive-ink hover:text-destructive-ink">
                       <X className="h-4 w-4" />
                     </Button>
                   )}

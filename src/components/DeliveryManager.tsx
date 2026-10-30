@@ -23,9 +23,9 @@ import {
  * different lists would write rows the other cannot label.
  */
 const TONE_CLASS: Record<StatusTone, string> = {
-  waiting: "text-warning",
-  good: "text-success",
-  bad: "text-destructive",
+  waiting: "text-warning-ink",
+  good: "text-success-ink",
+  bad: "text-destructive-ink",
   done: "text-muted-foreground",
 };
 
@@ -191,7 +191,7 @@ const DeliveryManager = ({ autoOpenTrigger }: DeliveryManagerProps = {}) => {
           </div>
         </div>
         {v.status === "approved" && (
-          <Button size="sm" variant="outline" className="w-full gap-1 border-success/50 text-success hover:bg-success hover:text-white"
+          <Button size="sm" variant="outline" className="w-full gap-1 border-success/50 text-success-ink hover:bg-success hover:text-success-foreground"
             onClick={() => void handleExit(v.id)} disabled={exitingId === v.id}>
             <LogOut className="h-4 w-4" /> Mark Exit
           </Button>
@@ -221,7 +221,7 @@ const DeliveryManager = ({ autoOpenTrigger }: DeliveryManagerProps = {}) => {
         <div className="space-y-4">
           {pending.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-warning flex items-center gap-1">
+              <p className="text-sm font-semibold text-warning-ink flex items-center gap-1">
                 <Clock className="h-4 w-4" /> Awaiting Approval ({pending.length})
               </p>
               {pending.map((v) => <VisitCard key={v.id} v={v} />)}
@@ -229,7 +229,7 @@ const DeliveryManager = ({ autoOpenTrigger }: DeliveryManagerProps = {}) => {
           )}
           {approved.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-success flex items-center gap-1">
+              <p className="text-sm font-semibold text-success-ink flex items-center gap-1">
                 <CheckCircle className="h-4 w-4" /> Approved — Inside ({approved.length})
               </p>
               {approved.map((v) => <VisitCard key={v.id} v={v} />)}
@@ -237,7 +237,7 @@ const DeliveryManager = ({ autoOpenTrigger }: DeliveryManagerProps = {}) => {
           )}
           {rejected.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-destructive flex items-center gap-1">
+              <p className="text-sm font-semibold text-destructive-ink flex items-center gap-1">
                 <XCircle className="h-4 w-4" /> Rejected ({rejected.length})
               </p>
               {rejected.map((v) => <VisitCard key={v.id} v={v} />)}

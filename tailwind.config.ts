@@ -27,6 +27,9 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          // text-primary-ink: the same hue, legible as type. See the note
+          // beside the --*-ink tokens in src/index.css.
+          ink: "hsl(var(--primary-ink))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -35,6 +38,9 @@ export default {
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
+          // text-destructive-ink: the same hue, legible as type. See the note
+          // beside the --*-ink tokens in src/index.css.
+          ink: "hsl(var(--destructive-ink))",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
@@ -43,6 +49,9 @@ export default {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+          // text-accent-ink: the same hue, legible as type. See the note
+          // beside the --*-ink tokens in src/index.css.
+          ink: "hsl(var(--accent-ink))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
@@ -55,10 +64,16 @@ export default {
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
+          // text-success-ink: the same hue, legible as type. See the note
+          // beside the --*-ink tokens in src/index.css.
+          ink: "hsl(var(--success-ink))",
         },
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
+          // text-warning-ink: the same hue, legible as type. See the note
+          // beside the --*-ink tokens in src/index.css.
+          ink: "hsl(var(--warning-ink))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",

@@ -184,7 +184,7 @@ const MaintenanceBillingSetup = () => {
       {/* Billing settings */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg"><Settings2 className="h-5 w-5 text-primary" /> Billing Settings</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-lg"><Settings2 className="h-5 w-5 text-primary-ink" /> Billing Settings</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
@@ -236,7 +236,7 @@ const MaintenanceBillingSetup = () => {
       {/* Charge heads */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg"><Sparkles className="h-5 w-5 text-primary" /> Charge Heads</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-lg"><Sparkles className="h-5 w-5 text-primary-ink" /> Charge Heads</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 md:grid-cols-4">
@@ -263,7 +263,7 @@ const MaintenanceBillingSetup = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <Switch checked={ch.is_active} onCheckedChange={() => void toggleChargeHeadActive(ch)} />
-                  <Button variant="ghost" size="sm" onClick={() => void deleteChargeHead(ch.id)} className="text-destructive hover:text-destructive">
+                  <Button variant="ghost" size="sm" onClick={() => void deleteChargeHead(ch.id)} className="text-destructive-ink hover:text-destructive-ink">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -276,7 +276,7 @@ const MaintenanceBillingSetup = () => {
       {/* Flats registry */}
       <Card>
         <CardHeader className="pb-3 flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg"><Home className="h-5 w-5 text-primary" /> Flats & Area</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-lg"><Home className="h-5 w-5 text-primary-ink" /> Flats & Area</CardTitle>
           <Button variant="outline" size="sm" onClick={() => void importFromResidents()} disabled={importing}>
             {importing ? "Importing..." : "Import from Residents"}
           </Button>
@@ -303,7 +303,7 @@ const MaintenanceBillingSetup = () => {
                 />
                 <span className="text-sm text-muted-foreground">sq.ft.</span>
                 <div className="flex-1" />
-                <Button variant="ghost" size="sm" onClick={() => void deleteFlat(f.id)} className="text-destructive hover:text-destructive">
+                <Button variant="ghost" size="sm" onClick={() => void deleteFlat(f.id)} className="text-destructive-ink hover:text-destructive-ink">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>

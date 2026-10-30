@@ -6,7 +6,7 @@ const GuardLogin = () => (
     roleName="Security Guard"
     roleKey="guard"
     icon={ScanLine}
-    accentClass="bg-primary/20 text-primary"
+    accentClass="bg-primary/20 text-primary-ink"
     dashboardPath="/guard/dashboard"
     description="Security Guard Login"
   />

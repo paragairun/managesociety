@@ -12,9 +12,9 @@ type Booking = Database["public"]["Tables"]["amenity_bookings"]["Row"];
 type Amenity = Database["public"]["Tables"]["amenities"]["Row"];
 
 const STATUS_STYLES: Record<string, string> = {
-  pending_approval: "bg-warning/10 text-warning",
-  approved: "bg-success/10 text-success",
-  rejected: "bg-destructive/10 text-destructive",
+  pending_approval: "bg-warning/10 text-warning-ink",
+  approved: "bg-success/10 text-success-ink",
+  rejected: "bg-destructive/10 text-destructive-ink",
   cancelled: "bg-muted text-muted-foreground",
   completed: "bg-secondary text-muted-foreground",
 };
@@ -83,7 +83,7 @@ const AmenityBookingsAdmin = () => {
             {" · "}{b.start_time.slice(0, 5)}–{b.end_time.slice(0, 5)}
           </p>
           {b.notes && <p className="text-sm text-muted-foreground mt-1">"{b.notes}"</p>}
-          {b.rejection_reason && <p className="text-sm text-destructive mt-1">Rejected: {b.rejection_reason}</p>}
+          {b.rejection_reason && <p className="text-sm text-destructive-ink mt-1">Rejected: {b.rejection_reason}</p>}
         </div>
         <span className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${STATUS_STYLES[b.status]}`}>
           {b.status.replace("_", " ")}
@@ -103,7 +103,7 @@ const AmenityBookingsAdmin = () => {
             <Button size="sm" onClick={() => void approve(b.id)} disabled={processingId === b.id} className="gap-1 bg-success hover:bg-success/80">
               <Check className="h-4 w-4" /> Approve
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setRejectingId(b.id)} disabled={processingId === b.id} className="gap-1 border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground">
+            <Button size="sm" variant="outline" onClick={() => setRejectingId(b.id)} disabled={processingId === b.id} className="gap-1 border-destructive/50 text-destructive-ink hover:bg-destructive hover:text-destructive-foreground">
               <X className="h-4 w-4" /> Reject
             </Button>
           </div>

@@ -156,7 +156,7 @@ const GuardRegistry = () => {
 
         {loading ? (
           <div className="py-8 flex justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <Loader2 className="h-6 w-6 animate-spin text-primary-ink" />
           </div>
         ) : filtered.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-6">
@@ -189,7 +189,7 @@ const GuardRegistry = () => {
                       <Button variant="ghost" size="sm" disabled={deletingId === g.user_id} aria-label={`Remove ${g.display_name ?? "guard"}`}>
                         {deletingId === g.user_id
                           ? <Loader2 className="h-4 w-4 animate-spin" />
-                          : <Trash2 className="h-4 w-4 text-destructive" />}
+                          : <Trash2 className="h-4 w-4 text-destructive-ink" />}
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>

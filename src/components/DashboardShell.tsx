@@ -131,7 +131,7 @@ const DashboardShell = ({
               variant="ghost"
               size="icon"
               onClick={onSignOut}
-              className="text-muted-foreground hover:text-destructive"
+              className="text-muted-foreground hover:text-destructive-ink"
               aria-label="Sign out"
             >
               <Power className="h-5 w-5" />

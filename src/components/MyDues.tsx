@@ -70,7 +70,7 @@ const MyDues = ({ residentFlats, formatFlat }: MyDuesProps) => {
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg"><Wallet className="h-5 w-5 text-primary" /> My Dues</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-lg"><Wallet className="h-5 w-5 text-primary-ink" /> My Dues</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-baseline gap-2">

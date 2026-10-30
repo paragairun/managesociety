@@ -264,7 +264,7 @@ const SocietyStaffManager = () => {
                   {s.photo_base64 ? (
                     <img src={s.photo_base64} alt={s.name} className="h-10 w-10 rounded-full object-cover" />
                   ) : (
-                    <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+                    <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary-ink font-bold text-sm">
                       {s.name.charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -282,7 +282,7 @@ const SocietyStaffManager = () => {
                 </div>
                 <div className="flex items-center gap-1">
                   <Button variant="ghost" size="sm" onClick={() => setFingerprintFor({ id: s.id, name: s.name })} aria-label="Fingerprints" title={s.fingerprint_enrolled ? "Fingerprint enrolled" : "Enrol fingerprint"}>
-                    <Fingerprint className={`h-4 w-4 ${s.fingerprint_enrolled ? "text-success" : "text-muted-foreground"}`} />
+                    <Fingerprint className={`h-4 w-4 ${s.fingerprint_enrolled ? "text-success-ink" : "text-muted-foreground"}`} />
                   </Button>
                   <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => openEdit(s)} title="Edit profile">
                     <Pencil className="h-4 w-4" />
@@ -293,7 +293,7 @@ const SocietyStaffManager = () => {
                   <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => void toggleActive(s)} title={s.is_active ? "Deactivate" : "Activate"}>
                     {s.is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                   </Button>
-                  <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => void deleteStaff(s)}>
+                  <Button size="icon" variant="outline" className="h-8 w-8 text-destructive-ink hover:text-destructive-ink" onClick={() => void deleteStaff(s)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>

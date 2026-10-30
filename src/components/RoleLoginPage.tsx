@@ -42,12 +42,12 @@ const WrongRolePage = ({ roleName, returnPath, signOut }: { roleName: string; re
   return (
     <div className="min-h-screen flex items-center justify-center p-6 text-center">
       <div className="space-y-3 max-w-sm">
-        <p className="text-2xl font-bold text-destructive">Wrong Account Type</p>
+        <p className="text-2xl font-bold text-destructive-ink">Wrong Account Type</p>
         <p className="text-muted-foreground text-sm">
           That account isn't registered as a {roleName.toLowerCase()}. You've been signed out --
           please try again with the correct credentials.
         </p>
-        <Link to={returnPath} className="text-sm text-primary underline inline-block">
+        <Link to={returnPath} className="text-sm text-primary-ink underline inline-block">
           Back to {roleName} Login
         </Link>
       </div>
@@ -106,13 +106,13 @@ const RoleLoginPage = ({ roleName, roleKey, icon: Icon, accentClass, dashboardPa
       return (
         <div className="min-h-screen flex items-center justify-center p-6 text-center">
           <div className="space-y-3 max-w-sm">
-            <p className="text-2xl font-bold text-destructive">Wrong Society</p>
+            <p className="text-2xl font-bold text-destructive-ink">Wrong Society</p>
             <p className="text-muted-foreground text-sm">
               This account does not belong to this society.
               Please use your society's correct login URL.
             </p>
             <button
-              className="text-sm text-primary underline"
+              className="text-sm text-primary-ink underline"
               onClick={() => void signOut()}
             >Sign out</button>
           </div>
@@ -128,13 +128,13 @@ const RoleLoginPage = ({ roleName, roleKey, icon: Icon, accentClass, dashboardPa
       return (
         <div className="min-h-screen flex items-center justify-center p-6 text-center">
           <div className="space-y-3 max-w-sm">
-            <p className="text-2xl font-bold text-destructive">No Society Linked</p>
+            <p className="text-2xl font-bold text-destructive-ink">No Society Linked</p>
             <p className="text-muted-foreground text-sm">
               This account is not linked to any society yet. Ask your
               society admin to finish setting it up.
             </p>
             <button
-              className="text-sm text-primary underline"
+              className="text-sm text-primary-ink underline"
               onClick={() => void signOut()}
             >Sign out</button>
           </div>
@@ -254,7 +254,7 @@ const RoleLoginPage = ({ roleName, roleKey, icon: Icon, accentClass, dashboardPa
                   <button
                     type="button"
                     onClick={() => { setShowForgot(true); setForgotEmail(email); }}
-                    className="text-xs text-primary hover:underline"
+                    className="text-xs text-primary-ink hover:underline"
                   >
                     Forgot password?
                   </button>

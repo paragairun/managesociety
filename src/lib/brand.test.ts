@@ -51,6 +51,14 @@ describe("the palette matches the website's light tokens", () => {
     ["success", "success"],
     ["warning", "warning"],
     ["danger", "destructive"],
+    // Re-added once the website's own tokens were corrected: these four
+    // pairs used to be white on a mid-tone fill and had to be excused
+    // here. Checking them is the point — it means the apps and the site
+    // agree about what goes on top of a button.
+    ["onBrand", "primary-foreground"],
+    ["onAccent", "accent-foreground"],
+    ["onSuccess", "success-foreground"],
+    ["onDanger", "destructive-foreground"],
   ];
 
   /**
@@ -87,10 +95,10 @@ describe("the brand is amber, not blue", () => {
   });
 
   it("puts dark text on the brand colour, not white", () => {
-    // The website's --primary-foreground is white, which on #F59300 is
-    // 2.32:1 and fails every threshold. This is the one place the apps
-    // deliberately diverge from the token, and the launcher icon agrees
-    // with the apps: navy artwork on amber.
+    // --primary-foreground was white, which on #F59300 is 2.32:1 and
+    // fails every threshold; the apps used the dark foreground and the
+    // website was then corrected to match. The launcher icon agreed all
+    // along: navy artwork on amber.
     const luminance = (hex: string) => {
       const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
         .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));

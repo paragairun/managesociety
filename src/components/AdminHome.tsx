@@ -24,14 +24,14 @@ interface AdminHomeProps {
 const money = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
 const TILES = [
-  { id: "vehicle-management", title: "Register Vehicle", icon: Plus, tint: "bg-primary/10 text-primary" },
-  { id: "vehicle-management", title: "Vehicle Registry", icon: Car, tint: "bg-accent/10 text-accent" },
-  { id: "users", title: "User Registry", icon: Users, tint: "bg-primary/10 text-primary" },
-  { id: "vehicle-management", badgeId: "vehicle-requests", title: "Vehicle Requests", icon: FileSpreadsheet, tint: "bg-warning/10 text-warning" },
-  { id: "staff", title: "Staff", icon: Users, tint: "bg-accent/10 text-accent" },
-  { id: "guards", title: "Guard Registry", icon: Shield, tint: "bg-accent/10 text-accent" },
-  { id: "device-pins", title: "Fingerprint IDs", icon: Fingerprint, tint: "bg-accent/10 text-accent" },
-  { id: "vehicle-management", title: "Boom Barriers", icon: Radio, tint: "bg-success/10 text-success" },
+  { id: "vehicle-management", title: "Register Vehicle", icon: Plus, tint: "bg-primary/10 text-primary-ink" },
+  { id: "vehicle-management", title: "Vehicle Registry", icon: Car, tint: "bg-accent/10 text-accent-ink" },
+  { id: "users", title: "User Registry", icon: Users, tint: "bg-primary/10 text-primary-ink" },
+  { id: "vehicle-management", badgeId: "vehicle-requests", title: "Vehicle Requests", icon: FileSpreadsheet, tint: "bg-warning/10 text-warning-ink" },
+  { id: "staff", title: "Staff", icon: Users, tint: "bg-accent/10 text-accent-ink" },
+  { id: "guards", title: "Guard Registry", icon: Shield, tint: "bg-accent/10 text-accent-ink" },
+  { id: "device-pins", title: "Fingerprint IDs", icon: Fingerprint, tint: "bg-accent/10 text-accent-ink" },
+  { id: "vehicle-management", title: "Boom Barriers", icon: Radio, tint: "bg-success/10 text-success-ink" },
 ];
 
 const AdminHome = ({ societyName, stats, recentEntries, onNavigate }: AdminHomeProps) => {
@@ -75,7 +75,7 @@ const AdminHome = ({ societyName, stats, recentEntries, onNavigate }: AdminHomeP
         <Card className="border-l-4 border-l-success cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate("stats")}>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Currently inside</p>
-            <p className="text-2xl font-bold flex items-center gap-2"><Activity className="h-5 w-5 text-success" /> {stats.currently_inside}</p>
+            <p className="text-2xl font-bold flex items-center gap-2"><Activity className="h-5 w-5 text-success-ink" /> {stats.currently_inside}</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-warning cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate("billing-setup")}>
@@ -132,7 +132,7 @@ const AdminHome = ({ societyName, stats, recentEntries, onNavigate }: AdminHomeP
                 {pendingAmenities}
               </span>
             )}
-            <span className="h-11 w-11 rounded-full flex items-center justify-center bg-warning/10 text-warning">
+            <span className="h-11 w-11 rounded-full flex items-center justify-center bg-warning/10 text-warning-ink">
               <Sparkles className="h-5 w-5" />
             </span>
             <span className="text-xs font-medium text-center leading-tight">Amenities</span>
@@ -145,7 +145,7 @@ const AdminHome = ({ societyName, stats, recentEntries, onNavigate }: AdminHomeP
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-muted-foreground">Recent activity</h3>
-            <button onClick={() => onNavigate("access-logs")} className="text-xs text-primary font-medium flex items-center gap-1">
+            <button onClick={() => onNavigate("access-logs")} className="text-xs text-primary-ink font-medium flex items-center gap-1">
               See all <ArrowRight className="h-3 w-3" />
             </button>
           </div>
@@ -155,7 +155,7 @@ const AdminHome = ({ societyName, stats, recentEntries, onNavigate }: AdminHomeP
             <div className="space-y-3">
               {recentEntries.slice(0, 5).map((log) => (
                 <div key={log.id} className="flex items-center gap-3 text-sm">
-                  <span className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${log.exit_time ? "bg-muted text-muted-foreground" : "bg-success/10 text-success"}`}>
+                  <span className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${log.exit_time ? "bg-muted text-muted-foreground" : "bg-success/10 text-success-ink"}`}>
                     {log.exit_time ? <LogOut className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
                   </span>
                   <div className="min-w-0 flex-1">

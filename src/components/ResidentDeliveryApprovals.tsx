@@ -295,7 +295,7 @@ const ResidentDeliveryApprovals = ({ onPendingCountChange, onViewDeliveries }: R
             <p className="text-sm text-muted-foreground">📱 {v.mobile}{v.agent_name ? ` • ${v.agent_name}` : ""}</p>
             <p className="text-xs text-muted-foreground mt-0.5">Arrived at {timeStr}</p>
             {showActions && expiresIn > 0 && (
-              <p className="text-xs text-warning flex items-center gap-1 mt-0.5">
+              <p className="text-xs text-warning-ink flex items-center gap-1 mt-0.5">
                 <Clock className="h-3 w-3" /> Expires in {expiresIn} min
               </p>
             )}
@@ -314,7 +314,7 @@ const ResidentDeliveryApprovals = ({ onPendingCountChange, onViewDeliveries }: R
           </div>
         )}
         {!showActions && (
-          <p className={`text-xs font-medium ${v.status === "approved" ? "text-success" : "text-destructive"}`}>
+          <p className={`text-xs font-medium ${v.status === "approved" ? "text-success-ink" : "text-destructive-ink"}`}>
             {v.status === "approved" ? "✅ You approved this delivery" : "❌ You rejected this delivery"}
           </p>
         )}
@@ -341,7 +341,7 @@ const ResidentDeliveryApprovals = ({ onPendingCountChange, onViewDeliveries }: R
       {pending.length > 0 && (
         <Card className="border-warning/40">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-warning flex items-center gap-2">
+            <CardTitle className="text-sm text-warning-ink flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-warning animate-pulse" />
               Waiting for your approval ({pending.length})
             </CardTitle>

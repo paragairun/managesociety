@@ -55,9 +55,9 @@ const ProtectedRoute = ({ children, requiredRole, loginPathBase }: ProtectedRout
     return (
       <div className="min-h-screen flex items-center justify-center p-4 text-center">
         <div className="space-y-4 max-w-sm">
-          <p className="text-2xl font-bold text-destructive">Access Denied</p>
+          <p className="text-2xl font-bold text-destructive-ink">Access Denied</p>
           <p className="text-muted-foreground">{decision.message}</p>
-          <Link to="/login" className="text-sm text-primary underline inline-block">
+          <Link to="/login" className="text-sm text-primary-ink underline inline-block">
             Back to login
           </Link>
         </div>

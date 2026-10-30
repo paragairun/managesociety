@@ -186,9 +186,9 @@ const EvChargingResident = () => {
   if (error) {
     return (
       <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 flex gap-2 items-start">
-        <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+        <AlertCircle className="h-4 w-4 text-destructive-ink mt-0.5 shrink-0" />
         <div>
-          <p className="text-sm font-medium text-destructive">EV charging could not be loaded</p>
+          <p className="text-sm font-medium text-destructive-ink">EV charging could not be loaded</p>
           <p className="text-xs text-muted-foreground break-words">{error}</p>
         </div>
       </div>
@@ -232,7 +232,7 @@ const EvChargingResident = () => {
                       <p className="text-xs text-muted-foreground">
                         Scan with any UPI app — the amount is already filled in
                       </p>
-                      <a href={payLink} className="text-xs underline text-primary">
+                      <a href={payLink} className="text-xs underline text-primary-ink">
                         or tap to open your UPI app
                       </a>
                     </>

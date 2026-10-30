@@ -298,7 +298,7 @@ const AdminPanel = () => {
   const StatCard = ({ label, value, icon: Icon, accent }: { label: string; value: number; icon: typeof Car; accent?: string }) => (
     <Card>
       <CardContent className="p-4 flex items-center gap-3">
-        <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${accent ?? "bg-primary/10 text-primary"}`}>
+        <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${accent ?? "bg-primary/10 text-primary-ink"}`}>
           <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0">
@@ -313,11 +313,11 @@ const AdminPanel = () => {
     <>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <StatCard label="Registered Vehicles" value={stats.total_vehicles} icon={Car} />
-        <StatCard label="Currently Inside" value={stats.currently_inside} icon={Activity} accent="bg-success/10 text-success" />
+        <StatCard label="Currently Inside" value={stats.currently_inside} icon={Activity} accent="bg-success/10 text-success-ink" />
         <StatCard label="Today's Entries" value={stats.today_entries} icon={QrCode} />
-        <StatCard label="Last 7 Days" value={stats.week_entries} icon={TrendingUp} accent="bg-accent/10 text-accent" />
+        <StatCard label="Last 7 Days" value={stats.week_entries} icon={TrendingUp} accent="bg-accent/10 text-accent-ink" />
         <StatCard label="Total Residents" value={stats.total_residents} icon={Users} />
-        <StatCard label="Pending Requests" value={stats.pending_requests} icon={ClipboardCheck} accent="bg-warning/10 text-warning" />
+        <StatCard label="Pending Requests" value={stats.pending_requests} icon={ClipboardCheck} accent="bg-warning/10 text-warning-ink" />
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
@@ -379,7 +379,7 @@ const AdminPanel = () => {
                   {e.entry_type} {e.wing && `• ${formatFlat(e.wing, e.flat_number)}`} • {new Date(e.entry_time).toLocaleString()}
                 </p>
               </div>
-              <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${e.exit_time ? "bg-muted text-muted-foreground" : "bg-success/15 text-success"}`}>
+              <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${e.exit_time ? "bg-muted text-muted-foreground" : "bg-success/15 text-success-ink"}`}>
                 {e.exit_time ? "exited" : "inside"}
               </span>
             </div>
@@ -392,7 +392,7 @@ const AdminPanel = () => {
   const renderRegister = () => (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg"><Plus className="h-5 w-5 text-primary" /> Register New Vehicle</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-lg"><Plus className="h-5 w-5 text-primary-ink" /> Register New Vehicle</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -597,7 +597,7 @@ const AdminPanel = () => {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <LinkIcon className="h-5 w-5 text-primary" /> Visitor Form Access QR
+          <LinkIcon className="h-5 w-5 text-primary-ink" /> Visitor Form Access QR
         </CardTitle>
       </CardHeader>
       <CardContent>

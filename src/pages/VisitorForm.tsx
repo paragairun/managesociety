@@ -83,7 +83,7 @@ const VisitorForm = () => {
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-md text-center">
           <CardContent className="pt-8 pb-8 space-y-4">
-            <CheckCircle className="h-16 w-16 text-success mx-auto" />
+            <CheckCircle className="h-16 w-16 text-success-ink mx-auto" />
             <h2 className="text-2xl font-bold text-foreground">Request Submitted!</h2>
             <p className="text-muted-foreground">
               The security guard will review your entry. Please wait at the gate.
@@ -123,7 +123,7 @@ const VisitorForm = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto h-14 w-14 rounded-full bg-primary/20 flex items-center justify-center mb-2">
-            <Car className="h-7 w-7 text-primary" />
+            <Car className="h-7 w-7 text-primary-ink" />
           </div>
           <CardTitle className="text-xl">{society?.name ?? "Visitor Entry"}</CardTitle>
           <p className="text-muted-foreground text-sm">Visitor Entry Registration</p>

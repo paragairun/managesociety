@@ -65,7 +65,7 @@ const ResetPassword = () => {
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-sm">
           <CardContent className="p-8 text-center space-y-3">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary-ink mx-auto" />
             <p className="text-muted-foreground text-sm">Verifying reset link...</p>
           </CardContent>
         </Card>
@@ -77,7 +77,7 @@ const ResetPassword = () => {
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center space-y-3">
-          <div className="mx-auto h-16 w-16 rounded-2xl flex items-center justify-center bg-primary/20 text-primary">
+          <div className="mx-auto h-16 w-16 rounded-2xl flex items-center justify-center bg-primary/20 text-primary-ink">
             <KeyRound className="h-8 w-8" />
           </div>
           <CardTitle className="text-xl">Set New Password</CardTitle>

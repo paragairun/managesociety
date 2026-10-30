@@ -87,3 +87,60 @@ describe("native style usage", () => {
     expect(offences, `\n${offences.join("\n")}\n`).toEqual([]);
   });
 });
+
+/**
+ * The same split, enforced on the website.
+ *
+ * Tailwind's `text-primary` resolves to --primary, the FILL colour. In
+ * light mode that is 2.32:1 on white; the readable variant is
+ * `text-primary-ink`. These were fine while the site defaulted to dark
+ * and became wrong the moment light became the default — 278 of them,
+ * across 53 files.
+ */
+describe("website style usage", () => {
+  const FILLS = ["primary", "success", "warning", "accent", "destructive"];
+
+  const webFiles = tsxFilesUnder(resolve(process.cwd(), "src"))
+    .filter((f) => f.endsWith(".tsx"));
+
+  it("finds the website source", () => {
+    expect(webFiles.length).toBeGreaterThan(0);
+  });
+
+  it("never colours text with a fill token", () => {
+    const offences: string[] = [];
+    // `text-<fill>` not followed by -ink or -foreground, in any variant
+    // position (hover:, dark:, group-hover: and so on).
+    const pattern = new RegExp(
+      String.raw`\btext-(${FILLS.join("|")})\b(?!-)`,
+      "g",
+    );
+
+    for (const file of webFiles) {
+      readFileSync(file, "utf8").split("\n").forEach((line, i) => {
+        for (const m of line.matchAll(pattern)) {
+          offences.push(
+            `${file.replace(process.cwd() + "/", "")}:${i + 1}  ${m[0]}  -> ${m[0]}-ink`,
+          );
+        }
+      });
+    }
+
+    expect(offences, `\n${offences.slice(0, 40).join("\n")}\n`).toEqual([]);
+  });
+
+  it("never pairs a fill background with hardcoded white text", () => {
+    // White on the amber is 2.32:1 and on the green 2.90:1. The paired
+    // --*-foreground token is the colour that belongs there.
+    const offences: string[] = [];
+    for (const file of webFiles) {
+      readFileSync(file, "utf8").split("\n").forEach((line, i) => {
+        const bg = new RegExp(String.raw`\bbg-(${FILLS.join("|")})\b(?!-)`).test(line);
+        if (bg && /\btext-white\b/.test(line)) {
+          offences.push(`${file.replace(process.cwd() + "/", "")}:${i + 1}  ${line.trim().slice(0, 100)}`);
+        }
+      });
+    }
+    expect(offences, `\n${offences.join("\n")}\n`).toEqual([]);
+  });
+});

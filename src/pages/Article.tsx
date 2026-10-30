@@ -12,7 +12,7 @@ const Article = () => (
       <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
           <div className="h-9 w-9 rounded-lg bg-primary/15 flex items-center justify-center">
-            <Building2 className="h-5 w-5 text-primary" />
+            <Building2 className="h-5 w-5 text-primary-ink" />
           </div>
           <span className="font-bold text-foreground text-lg">{APP_NAME}</span>
         </Link>
@@ -26,7 +26,7 @@ const Article = () => (
 
       <div className="mb-10">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-xs font-semibold uppercase tracking-widest text-primary">Society Management</span>
+          <span className="text-xs font-semibold uppercase tracking-widest text-primary-ink">Society Management</span>
           <span className="text-muted-foreground text-xs">·</span>
           <span className="text-xs text-muted-foreground">15 min read</span>
         </div>
@@ -49,7 +49,7 @@ const Article = () => (
         <section className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
-              <FileText className="h-5 w-5 text-destructive" />
+              <FileText className="h-5 w-5 text-destructive-ink" />
             </div>
             <h2 className="text-xl font-bold">The Real Cost of Running a Society Manually</h2>
           </div>
@@ -67,7 +67,7 @@ const Article = () => (
               { issue: "No audit trail", detail: "Something goes missing. The committee asks for entry records. Someone finds a notebook. That is the best-case scenario." },
             ].map((item) => (
               <div key={item.issue} className="flex gap-3">
-                <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                <AlertTriangle className="h-4 w-4 text-destructive-ink shrink-0 mt-0.5" />
                 <p className="text-sm"><span className="font-semibold text-foreground">{item.issue}: </span><span className="text-muted-foreground">{item.detail}</span></p>
               </div>
             ))}
@@ -78,7 +78,7 @@ const Article = () => (
         <section className="space-y-5">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Building2 className="h-5 w-5 text-primary" />
+              <Building2 className="h-5 w-5 text-primary-ink" />
             </div>
             <h2 className="text-xl font-bold">Everything {APP_NAME} Handles</h2>
           </div>
@@ -143,7 +143,7 @@ const Article = () => (
             <div key={title} className="rounded-xl border border-border bg-card p-5 space-y-2">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <Icon className="h-4 w-4 text-primary" />
+                  <Icon className="h-4 w-4 text-primary-ink" />
                 </div>
                 <h3 className="font-bold text-foreground">{title}</h3>
               </div>
@@ -160,8 +160,8 @@ const Article = () => (
               <thead>
                 <tr className="bg-secondary/60">
                   <th className="text-left p-3 font-semibold text-foreground">Situation</th>
-                  <th className="text-left p-3 font-semibold text-destructive">Manual</th>
-                  <th className="text-left p-3 font-semibold text-success">{APP_NAME}</th>
+                  <th className="text-left p-3 font-semibold text-destructive-ink">Manual</th>
+                  <th className="text-left p-3 font-semibold text-success-ink">{APP_NAME}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -183,7 +183,7 @@ const Article = () => (
                   <tr key={situation} className="hover:bg-secondary/20 transition-colors">
                     <td className="p-3 font-medium text-foreground text-xs sm:text-sm">{situation}</td>
                     <td className="p-3 text-muted-foreground text-xs sm:text-sm">{manual}</td>
-                    <td className="p-3 text-success font-medium text-xs sm:text-sm">{digital}</td>
+                    <td className="p-3 text-success-ink font-medium text-xs sm:text-sm">{digital}</td>
                   </tr>
                 ))}
               </tbody>
@@ -232,14 +232,14 @@ const Article = () => (
               <div key={role} className="rounded-xl border border-border bg-card p-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Icon className="h-5 w-5 text-primary" />
+                    <Icon className="h-5 w-5 text-primary-ink" />
                   </div>
                   <p className="font-bold text-foreground">{role}</p>
                 </div>
                 <ul className="space-y-1.5">
                   {points.map((p) => (
                     <li key={p} className="flex gap-2 text-sm text-muted-foreground">
-                      <CheckCircle className="h-4 w-4 text-success shrink-0 mt-0.5" />
+                      <CheckCircle className="h-4 w-4 text-success-ink shrink-0 mt-0.5" />
                       {p}
                     </li>
                   ))}

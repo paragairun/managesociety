@@ -170,7 +170,7 @@ const RegistrationRequests = () => {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Clock className="h-5 w-5 text-primary" />
+            <Clock className="h-5 w-5 text-primary-ink" />
             User Registration Requests ({pendingRequests.length} pending)
           </CardTitle>
           {pendingRequests.length > 1 && (
@@ -252,7 +252,7 @@ const RegistrationRequests = () => {
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive-ink"
                       onClick={() => void handleDelete(req.id)}
                       disabled={deletingId === req.id}
                     >

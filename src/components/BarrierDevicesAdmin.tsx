@@ -86,7 +86,7 @@ const BarrierDevicesAdmin = () => {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Plus className="h-5 w-5 text-primary" /> Add Boom Barrier
+            <Plus className="h-5 w-5 text-primary-ink" /> Add Boom Barrier
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -134,7 +134,7 @@ const BarrierDevicesAdmin = () => {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Radio className="h-5 w-5 text-primary" /> Configured Barriers ({devices.length})
+            <Radio className="h-5 w-5 text-primary-ink" /> Configured Barriers ({devices.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">

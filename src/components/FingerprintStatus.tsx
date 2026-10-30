@@ -15,8 +15,8 @@ const FingerprintStatus = () => {
   if (status === "stopped") return null;
 
   const tone =
-    status === "armed" || status === "reading" ? "text-success"
-      : status === "error" ? "text-destructive"
+    status === "armed" || status === "reading" ? "text-success-ink"
+      : status === "error" ? "text-destructive-ink"
       : "text-muted-foreground";
 
   const icon =
@@ -51,7 +51,7 @@ const FingerprintStatus = () => {
 
       {lastScan && (
         <div className="flex items-center justify-center gap-1.5 text-xs text-foreground pt-1 border-t border-border/60">
-          <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+          <CheckCircle2 className="h-3.5 w-3.5 text-success-ink" />
           <span className="font-medium">{lastScan.name}</span>
           <span className="text-muted-foreground">
             {lastScan.action === "entry" ? "entered" : "exited"} · {lastScan.role}

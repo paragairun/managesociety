@@ -410,7 +410,7 @@ const ResidentPortal = () => {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <QrCode className="h-5 w-5 text-primary" /> Generate Guest Pass
+            <QrCode className="h-5 w-5 text-primary-ink" /> Generate Guest Pass
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -488,7 +488,7 @@ const ResidentPortal = () => {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Car className="h-5 w-5 text-primary" /> My Vehicles ({vehicles.length})
+            <Car className="h-5 w-5 text-primary-ink" /> My Vehicles ({vehicles.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -508,7 +508,7 @@ const ResidentPortal = () => {
                         <QrCode className="h-4 w-4" /> QR
                       </Button>
                       {!isChild && (
-                        <Button variant="ghost" size="sm" onClick={() => setRemoveTarget(v)} disabled={removingId === v.id} className="touch-target gap-1 text-destructive hover:text-destructive">
+                        <Button variant="ghost" size="sm" onClick={() => setRemoveTarget(v)} disabled={removingId === v.id} className="touch-target gap-1 text-destructive-ink hover:text-destructive-ink">
                           <Trash2 className="h-4 w-4" /> Remove
                         </Button>
                       )}
@@ -525,7 +525,7 @@ const ResidentPortal = () => {
           </div>
           {!isChild && (
           <div className="rounded-lg border border-dashed border-border p-3 space-y-3">
-            <div className="flex items-center gap-2"><Plus className="h-4 w-4 text-primary" /><p className="text-sm font-medium text-foreground">Request New Vehicle</p></div>
+            <div className="flex items-center gap-2"><Plus className="h-4 w-4 text-primary-ink" /><p className="text-sm font-medium text-foreground">Request New Vehicle</p></div>
             <p className="text-xs text-muted-foreground">Submit a request to register a new vehicle. Admin approval is required.</p>
             <p className="text-xs text-muted-foreground">
               Owner: <span className="font-medium text-foreground">{profileForm.display_name || "(set your name in My Profile)"}</span>
@@ -562,7 +562,7 @@ const ResidentPortal = () => {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <ClipboardCheck className="h-5 w-5 text-primary" /> My Vehicle Requests
+          <ClipboardCheck className="h-5 w-5 text-primary-ink" /> My Vehicle Requests
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -589,7 +589,7 @@ const ResidentPortal = () => {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <ClipboardList className="h-5 w-5 text-accent" /> Visit History
+          <ClipboardList className="h-5 w-5 text-accent-ink" /> Visit History
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -614,7 +614,7 @@ const ResidentPortal = () => {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <User className="h-5 w-5 text-primary" /> My Profile
+          <User className="h-5 w-5 text-primary-ink" /> My Profile
           {isChild && childType && (
             <Badge variant="secondary" className="ml-2 capitalize">{childType}</Badge>
           )}
@@ -643,7 +643,7 @@ const ResidentPortal = () => {
         {!isChild && (
         <>
         <div className="pt-2 border-t border-border space-y-3">
-          <div className="flex items-center gap-2"><Home className="h-4 w-4 text-primary" /><p className="text-sm font-medium text-foreground">My Flats ({flats.length})</p></div>
+          <div className="flex items-center gap-2"><Home className="h-4 w-4 text-primary-ink" /><p className="text-sm font-medium text-foreground">My Flats ({flats.length})</p></div>
           <div className="space-y-2">
             {flats.length === 0 ? (
               <p className="text-sm text-muted-foreground">No flats registered yet.</p>
@@ -665,7 +665,7 @@ const ResidentPortal = () => {
                       {settingPrimaryId === f.id ? "Setting..." : "Set as Primary"}
                     </Button>
                   )}
-                  <Button variant="ghost" size="sm" onClick={() => void removeFlat(f.id)} disabled={!f.id} className="text-destructive hover:text-destructive">
+                  <Button variant="ghost" size="sm" onClick={() => void removeFlat(f.id)} disabled={!f.id} className="text-destructive-ink hover:text-destructive-ink">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -686,7 +686,7 @@ const ResidentPortal = () => {
           </div>
         </div>
         <div className="pt-2 border-t border-border space-y-3">
-          <div className="flex items-center gap-2"><Users className="h-4 w-4 text-primary" /><p className="text-sm font-medium text-foreground">Family & Tenants ({children.length})</p></div>
+          <div className="flex items-center gap-2"><Users className="h-4 w-4 text-primary-ink" /><p className="text-sm font-medium text-foreground">Family & Tenants ({children.length})</p></div>
           <p className="text-xs text-muted-foreground">Add accounts for family members or tenants. They can generate guest passes and view flat vehicles, but cannot edit vehicle or flat details.</p>
           <div className="space-y-2">
             {children.length === 0 ? (
@@ -700,7 +700,7 @@ const ResidentPortal = () => {
                   </div>
                   <p className="text-xs text-muted-foreground">{c.phone || "no phone"} • added {new Date(c.created_at).toLocaleDateString()}</p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => setRemoveChildTarget(c)} className="text-destructive hover:text-destructive">
+                <Button variant="ghost" size="sm" onClick={() => setRemoveChildTarget(c)} className="text-destructive-ink hover:text-destructive-ink">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -752,8 +752,8 @@ const ResidentPortal = () => {
 
         <div className="pt-4 border-t border-destructive/30 space-y-3">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-            <p className="text-sm font-medium text-destructive">Danger Zone</p>
+            <AlertTriangle className="h-4 w-4 text-destructive-ink" />
+            <p className="text-sm font-medium text-destructive-ink">Danger Zone</p>
           </div>
           <p className="text-xs text-muted-foreground">
             Deleting your account removes your profile and flat association permanently.
@@ -763,7 +763,7 @@ const ResidentPortal = () => {
           <Button
             variant="outline"
             onClick={() => setDeleteAccountOpen(true)}
-            className="border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground gap-2"
+            className="border-destructive/50 text-destructive-ink hover:bg-destructive hover:text-destructive-foreground gap-2"
           >
             <Trash2 className="h-4 w-4" /> Delete My Account
           </Button>

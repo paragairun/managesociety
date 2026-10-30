@@ -6,7 +6,7 @@ const ResidentLogin = () => (
     roleName="Resident Portal"
     roleKey="resident"
     icon={ClipboardList}
-    accentClass="bg-success/20 text-success"
+    accentClass="bg-success/20 text-success-ink"
     dashboardPath="/resident/dashboard"
     description="Resident Portal Login"
   />

@@ -107,7 +107,7 @@ const SocietyRegister = () => {
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <Card className="w-full max-w-md text-center">
           <CardContent className="pt-8 pb-8 space-y-4">
-            <CheckCircle className="h-16 w-16 text-success mx-auto" />
+            <CheckCircle className="h-16 w-16 text-success-ink mx-auto" />
             <h2 className="text-2xl font-bold text-foreground">Society registration submitted!</h2>
             <p className="text-muted-foreground">
               Our platform team will review your request and activate your society shortly.
@@ -129,7 +129,7 @@ const SocietyRegister = () => {
         <Card>
           <CardHeader className="text-center space-y-3">
             <div className="mx-auto h-16 w-16 rounded-2xl bg-primary/15 flex items-center justify-center">
-              <Building2 className="h-8 w-8 text-primary" />
+              <Building2 className="h-8 w-8 text-primary-ink" />
             </div>
             <CardTitle className="text-2xl">Register Your Society</CardTitle>
             <p className="text-sm text-muted-foreground">

@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { APP_NAME } from "@/lib/app-url";
 
 const ROLES = [
-  { key: "admin", label: "Society Admin", icon: Shield, description: "Manage residents, vehicles, staff and billing", tint: "bg-warning/15 text-warning" },
-  { key: "guard", label: "Security Guard", icon: ScanLine, description: "Scan QR codes for vehicles, guests and staff at the gate", tint: "bg-primary/15 text-primary" },
-  { key: "resident", label: "Resident", icon: Users, description: "Guest passes, dues, deliveries and amenities", tint: "bg-success/15 text-success" },
+  { key: "admin", label: "Society Admin", icon: Shield, description: "Manage residents, vehicles, staff and billing", tint: "bg-warning/15 text-warning-ink" },
+  { key: "guard", label: "Security Guard", icon: ScanLine, description: "Scan QR codes for vehicles, guests and staff at the gate", tint: "bg-primary/15 text-primary-ink" },
+  { key: "resident", label: "Resident", icon: Users, description: "Guest passes, dues, deliveries and amenities", tint: "bg-success/15 text-success-ink" },
 ];
 
 /**
@@ -25,7 +25,7 @@ const LoginPortal = () => {
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-lg bg-primary/15 flex items-center justify-center">
-              <Building2 className="h-5 w-5 text-primary" />
+              <Building2 className="h-5 w-5 text-primary-ink" />
             </div>
             <span className="font-bold text-foreground text-lg">{APP_NAME}</span>
           </Link>
@@ -39,7 +39,7 @@ const LoginPortal = () => {
         <div className="w-full max-w-md">
           <div className="text-center mb-6">
             <div className="h-14 w-14 rounded-2xl bg-primary/15 flex items-center justify-center mx-auto mb-3">
-              <Building2 className="h-7 w-7 text-primary" />
+              <Building2 className="h-7 w-7 text-primary-ink" />
             </div>
             <h1 className="text-2xl font-bold text-foreground">Sign In</h1>
             <p className="text-sm text-muted-foreground mt-1">First, tell us who you are</p>
@@ -72,7 +72,7 @@ const LoginPortal = () => {
           <div className="text-center pt-6">
             <p className="text-xs text-muted-foreground">
               New society?{" "}
-              <Link to="/register-society" className="text-primary hover:underline">
+              <Link to="/register-society" className="text-primary-ink hover:underline">
                 Register here
               </Link>
             </p>

@@ -167,7 +167,7 @@ const BulkResidentUpload = () => {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Users className="h-5 w-5 text-primary" />
+          <Users className="h-5 w-5 text-primary-ink" />
           Bulk Resident Registration (CSV)
         </CardTitle>
       </CardHeader>
@@ -188,14 +188,14 @@ const BulkResidentUpload = () => {
 
         {errors.length > 0 && (
           <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 space-y-1">
-            <div className="flex items-center gap-2 text-destructive text-sm font-medium">
+            <div className="flex items-center gap-2 text-destructive-ink text-sm font-medium">
               <AlertCircle className="h-4 w-4" />
               {errors.length} issue(s)
             </div>
             {errors.slice(0, 5).map((err, i) => (
-              <p key={i} className="text-xs text-destructive/80">{err}</p>
+              <p key={i} className="text-xs text-destructive-ink/80">{err}</p>
             ))}
-            {errors.length > 5 && <p className="text-xs text-destructive/60">...and {errors.length - 5} more</p>}
+            {errors.length > 5 && <p className="text-xs text-destructive-ink/60">...and {errors.length - 5} more</p>}
           </div>
         )}
 

@@ -22,11 +22,11 @@ interface GuardHomeProps {
 }
 
 const TILES = [
-  { id: "scan", title: "Search & Scan", icon: Search, tint: "bg-primary/10 text-primary" },
-  { id: "approvals", title: "Pending Approvals", icon: ClipboardList, tint: "bg-warning/10 text-warning" },
-  { id: "live", title: "Live Inside", icon: Car, tint: "bg-success/10 text-success" },
-  { id: "barriers", title: "Boom Barriers", icon: Radio, tint: "bg-accent/10 text-accent" },
-  { id: "delivery", title: "Deliveries", icon: Package, tint: "bg-success/10 text-success" },
+  { id: "scan", title: "Search & Scan", icon: Search, tint: "bg-primary/10 text-primary-ink" },
+  { id: "approvals", title: "Pending Approvals", icon: ClipboardList, tint: "bg-warning/10 text-warning-ink" },
+  { id: "live", title: "Live Inside", icon: Car, tint: "bg-success/10 text-success-ink" },
+  { id: "barriers", title: "Boom Barriers", icon: Radio, tint: "bg-accent/10 text-accent-ink" },
+  { id: "delivery", title: "Deliveries", icon: Package, tint: "bg-success/10 text-success-ink" },
 ];
 
 const GuardHome = ({ societyName, pendingApprovals, liveInside, onNavigate, onStartScan, onRegisterDelivery }: GuardHomeProps) => {
@@ -76,7 +76,7 @@ const GuardHome = ({ societyName, pendingApprovals, liveInside, onNavigate, onSt
             <p className="text-sm text-muted-foreground">Delivery agent at the gate?</p>
             <p className="text-base font-semibold text-foreground">Register a delivery</p>
           </div>
-          <Button size="lg" variant="outline" onClick={onRegisterDelivery} className="gap-2 text-base font-bold border-success/50 text-success hover:bg-success hover:text-success-foreground">
+          <Button size="lg" variant="outline" onClick={onRegisterDelivery} className="gap-2 text-base font-bold border-success/50 text-success-ink hover:bg-success hover:text-success-foreground">
             <Package className="h-5 w-5" /> Register Delivery
           </Button>
         </CardContent>
@@ -148,7 +148,7 @@ const GuardHome = ({ societyName, pendingApprovals, liveInside, onNavigate, onSt
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-muted-foreground">Recent activity</h3>
-            <button onClick={() => onNavigate("live")} className="text-xs text-primary font-medium flex items-center gap-1">
+            <button onClick={() => onNavigate("live")} className="text-xs text-primary-ink font-medium flex items-center gap-1">
               See all <ArrowRight className="h-3 w-3" />
             </button>
           </div>
@@ -158,7 +158,7 @@ const GuardHome = ({ societyName, pendingApprovals, liveInside, onNavigate, onSt
             <div className="space-y-3">
               {recentEntries.map((log) => (
                 <div key={log.id} className="flex items-center gap-3 text-sm">
-                  <span className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${log.exit_time ? "bg-muted text-muted-foreground" : "bg-success/10 text-success"}`}>
+                  <span className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${log.exit_time ? "bg-muted text-muted-foreground" : "bg-success/10 text-success-ink"}`}>
                     {log.exit_time ? <LogOut className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
                   </span>
                   <div className="min-w-0 flex-1">

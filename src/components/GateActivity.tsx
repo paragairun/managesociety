@@ -58,7 +58,7 @@ const GateActivity = () => {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Radio className="h-5 w-5 text-primary" /> Boom Barriers ({devices.length})
+            <Radio className="h-5 w-5 text-primary-ink" /> Boom Barriers ({devices.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -71,7 +71,7 @@ const GateActivity = () => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="font-bold text-foreground truncate">{d.name}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${isOnline(d) ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${isOnline(d) ? "bg-success/20 text-success-ink" : "bg-muted text-muted-foreground"}`}>
                     {isOnline(d) ? "online" : "offline"}
                   </span>
                 </div>
@@ -101,7 +101,7 @@ const GateActivity = () => {
             const opened = ev.decision === "opened" || ev.decision === "manual_open";
             return (
               <div key={ev.id} className="flex items-center gap-3 p-2 rounded-lg border border-border">
-                {opened ? <ShieldCheck className="h-4 w-4 text-success shrink-0" /> : <ShieldAlert className="h-4 w-4 text-destructive shrink-0" />}
+                {opened ? <ShieldCheck className="h-4 w-4 text-success-ink shrink-0" /> : <ShieldAlert className="h-4 w-4 text-destructive-ink shrink-0" />}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">
                     {ev.vehicle_number ?? "—"} • {ev.decision} {ev.reason ? `(${ev.reason})` : ""}

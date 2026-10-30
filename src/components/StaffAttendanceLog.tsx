@@ -120,17 +120,17 @@ const StaffAttendanceLog = ({ filterStaffId, filterCategory = "all", showSummary
       {showSummary && !loading && summary.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           <Card><CardContent className="p-3 text-center">
-            <Calendar className="h-4 w-4 mx-auto mb-1 text-primary" />
+            <Calendar className="h-4 w-4 mx-auto mb-1 text-primary-ink" />
             <p className="text-2xl font-bold">{summary.length}</p>
             <p className="text-xs text-muted-foreground">Days present</p>
           </CardContent></Card>
           <Card><CardContent className="p-3 text-center">
-            <Clock className="h-4 w-4 mx-auto mb-1 text-primary" />
+            <Clock className="h-4 w-4 mx-auto mb-1 text-primary-ink" />
             <p className="text-2xl font-bold">{avgHours ?? "—"}</p>
             <p className="text-xs text-muted-foreground">Avg hrs/day</p>
           </CardContent></Card>
           <Card><CardContent className="p-3 text-center">
-            <TrendingUp className="h-4 w-4 mx-auto mb-1 text-primary" />
+            <TrendingUp className="h-4 w-4 mx-auto mb-1 text-primary-ink" />
             <p className="text-2xl font-bold">{logs.length}</p>
             <p className="text-xs text-muted-foreground">Total scans</p>
           </CardContent></Card>
@@ -139,9 +139,9 @@ const StaffAttendanceLog = ({ filterStaffId, filterCategory = "all", showSummary
 
       {error && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 flex gap-2 items-start">
-          <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+          <AlertCircle className="h-4 w-4 text-destructive-ink mt-0.5 shrink-0" />
           <div className="space-y-1">
-            <p className="text-sm font-medium text-destructive">Attendance could not be loaded</p>
+            <p className="text-sm font-medium text-destructive-ink">Attendance could not be loaded</p>
             <p className="text-xs text-muted-foreground break-words">{error}</p>
           </div>
         </div>

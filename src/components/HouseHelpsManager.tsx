@@ -105,7 +105,7 @@ const HouseHelpsManager = ({ residentFlats }: { residentFlats: ResidentFlat[] })
                       {h.photo_base64 ? (
                         <img src={h.photo_base64} alt={h.name} className="h-10 w-10 rounded-full object-cover" />
                       ) : (
-                        <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+                        <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary-ink font-bold text-sm">
                           {h.name.charAt(0).toUpperCase()}
                         </div>
                       )}
@@ -116,7 +116,7 @@ const HouseHelpsManager = ({ residentFlats }: { residentFlats: ResidentFlat[] })
                     </div>
                     <div className="flex items-center gap-1">
                       <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setShowIdCard(h)} title="View ID Card"><IdCard className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => void removeHelp(h)} title="Unlink"><Trash2 className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="outline" className="h-8 w-8 text-destructive-ink hover:text-destructive-ink" onClick={() => void removeHelp(h)} title="Unlink"><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </div>
                 ))}
@@ -130,7 +130,7 @@ const HouseHelpsManager = ({ residentFlats }: { residentFlats: ResidentFlat[] })
                 {available.map((h) => (
                   <div key={h.id} className="flex items-center justify-between p-2 rounded-lg border border-border bg-secondary/20">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
+                      <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary-ink font-bold text-xs">
                         {h.name.charAt(0).toUpperCase()}
                       </div>
                       <div>

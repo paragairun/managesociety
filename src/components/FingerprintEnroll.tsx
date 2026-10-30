@@ -164,14 +164,14 @@ const FingerprintEnroll = ({ open, onClose, subjectId, subjectCategory, subjectN
               </SelectContent>
             </Select>
             {deviceReady === false && (
-              <p className="text-xs text-destructive flex items-start gap-1.5">
+              <p className="text-xs text-destructive-ink flex items-start gap-1.5">
                 <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                 Scanner service not reachable. Start the vendor's service on this
                 machine and plug in the reader.
               </p>
             )}
             {deviceReady === true && (
-              <p className="text-xs text-success flex items-center gap-1.5">
+              <p className="text-xs text-success-ink flex items-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5" /> Scanner ready
               </p>
             )}
@@ -222,7 +222,7 @@ const FingerprintEnroll = ({ open, onClose, subjectId, subjectCategory, subjectN
                       {r.quality != null && <span className="text-muted-foreground"> · {r.quality}% quality</span>}
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => void handleDelete(r.id)} aria-label="Delete fingerprint">
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <Trash2 className="h-4 w-4 text-destructive-ink" />
                     </Button>
                   </div>
                 ))}

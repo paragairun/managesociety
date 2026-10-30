@@ -54,7 +54,7 @@ const QrScanner = ({ onScan, onClose }: QrScannerProps) => {
       <div className="w-full max-w-md p-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Camera className="h-6 w-6 text-primary" />
+            <Camera className="h-6 w-6 text-primary-ink" />
             <h2 className="text-xl font-bold text-foreground">Scan QR Code</h2>
           </div>
           <Button variant="ghost" size="icon" onClick={handleClose} className="touch-target">
@@ -62,7 +62,7 @@ const QrScanner = ({ onScan, onClose }: QrScannerProps) => {
           </Button>
         </div>
         <div id="qr-reader" className="w-full rounded-lg overflow-hidden border-2 border-primary/50" />
-        {error && <p className="mt-4 text-center text-destructive font-medium">{error}</p>}
+        {error && <p className="mt-4 text-center text-destructive-ink font-medium">{error}</p>}
         <p className="mt-4 text-center text-muted-foreground text-sm">Point camera at a vehicle QR sticker</p>
       </div>
     </div>

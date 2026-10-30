@@ -46,26 +46,24 @@ export const palette = {
   brandDark: "#D17E00",
 
   /**
-   * DELIBERATELY NOT --primary-foreground, which is white.
+   * --primary-foreground: 230 25% 12%.
    *
-   * White on #F59300 is 2.32:1. That fails every contrast threshold
-   * there is, and amber is the colour on every primary button in the
-   * product. The near-black foreground gives 7.47:1 on the same amber,
-   * and it is what the launcher icon does — navy artwork on amber.
-   *
-   * The website has the same problem in its own buttons; worth fixing
-   * there too, but these apps should not copy it across.
+   * This token used to be white, which on the amber is 2.32:1 — a
+   * failure on every primary button in the product. The apps diverged
+   * from it, then the website was corrected to match, so the two now
+   * agree and brand.test.ts checks the pair rather than excusing it.
+   * 7.47:1, and the same navy-on-amber the launcher icon uses.
    */
   onBrand: "#171A26",
 
   /** --accent: 160 60% 40% */
   accent: "#29A37A",
-  /** Same reasoning as onBrand: white on this accent is 3.17:1. */
+  /** --accent-foreground: 230 25% 12%. White here was 3.17:1. */
   onAccent: "#171A26",
 
   /** --success: 142 71% 40% */
   success: "#1EAE53",
-  /** White on success is 2.90:1; the dark foreground is 6.7:1. */
+  /** --success-foreground: 230 25% 12%. White here was 2.90:1. */
   onSuccess: "#171A26",
 
   /** --warning: 36 100% 48% — the same amber as the brand. */
@@ -73,7 +71,11 @@ export const palette = {
 
   /** --destructive: 0 72% 51% */
   danger: "#DC2828",
-  /** The one status colour white actually works on: 4.80:1. */
+  /**
+   * --destructive-foreground: 0 0% 100%. The one status colour white
+   * actually works on — 4.80:1, against 3.61:1 for the dark foreground
+   * — so this one stayed white when the others were corrected.
+   */
   onDanger: "#FFFFFF",
 
   /**

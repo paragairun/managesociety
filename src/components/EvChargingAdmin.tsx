@@ -200,9 +200,9 @@ const EvChargingAdmin = () => {
     <div className="space-y-4">
       {error && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 flex gap-2 items-start">
-          <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+          <AlertCircle className="h-4 w-4 text-destructive-ink mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-medium text-destructive">EV charging could not be loaded</p>
+            <p className="text-sm font-medium text-destructive-ink">EV charging could not be loaded</p>
             <p className="text-xs text-muted-foreground break-words">{error}</p>
           </div>
         </div>

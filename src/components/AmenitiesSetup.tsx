@@ -89,7 +89,7 @@ const AmenitiesSetup = () => {
     <div className="space-y-6">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg"><Sparkles className="h-5 w-5 text-primary" /> Add an Amenity</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-lg"><Sparkles className="h-5 w-5 text-primary-ink" /> Add an Amenity</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
@@ -163,7 +163,7 @@ const AmenitiesSetup = () => {
                   <Switch checked={a.is_active} onCheckedChange={() => void toggleActive(a)} />
                   <span className="text-xs text-muted-foreground">Active</span>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void deleteAmenity(a.id)} className="text-destructive hover:text-destructive">
+                <Button variant="ghost" size="sm" onClick={() => void deleteAmenity(a.id)} className="text-destructive-ink hover:text-destructive-ink">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>

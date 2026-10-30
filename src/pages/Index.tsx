@@ -17,32 +17,32 @@ const FEATURES = [
     icon: Car,
     title: "Vehicle & Visitor Management",
     description: "QR stickers for every vehicle, single-use guest passes, and instant gate verification — no logbooks.",
-    tint: "bg-primary/10 text-primary",
+    tint: "bg-primary/10 text-primary-ink",
   },
   {
     icon: IdCard,
     title: "Staff & House Help Tracking",
     description: "ID cards with QR check-in for domestic staff and society employees, with a full attendance log.",
-    tint: "bg-accent/10 text-accent",
+    tint: "bg-accent/10 text-accent-ink",
   },
   {
     icon: Package,
     title: "Delivery Management",
     description: "Delivery agents check in at the gate; residents approve or reject before anyone's let up.",
-    tint: "bg-success/10 text-success",
+    tint: "bg-success/10 text-success-ink",
   },
   {
     icon: Wallet,
     title: "Maintenance Billing",
     description: "Area-based dues, configurable charge heads, and full payment tracking for every flat.",
-    tint: "bg-warning/10 text-warning",
+    tint: "bg-warning/10 text-warning-ink",
     graphic: "dues",
   },
   {
     icon: Users,
     title: "Role-Based Dashboards",
     description: "Admins, guards, and residents each get their own scoped portal — nobody sees more than they need.",
-    tint: "bg-primary/10 text-primary",
+    tint: "bg-primary/10 text-primary-ink",
   },
   {
     icon: Sparkles,
@@ -80,7 +80,7 @@ interface Slide { roleLabel: string; screenLabel: string; roleTint: string; cont
 const SLIDES: Slide[] = [
   // ── Admin ──────────────────────────────────────────────────────────────
   {
-    roleLabel: "Admin", screenLabel: "Home", roleTint: "bg-warning/15 text-warning",
+    roleLabel: "Admin", screenLabel: "Home", roleTint: "bg-warning/15 text-warning-ink",
     content: (
       <div className="space-y-2.5">
         <div>
@@ -101,13 +101,13 @@ const SLIDES: Slide[] = [
           <p className="text-[8px] text-muted-foreground mb-1" style={{ fontFamily: LABEL_FONT }}>QUICK ACTIONS</p>
           <div className="grid grid-cols-4 gap-1.5">
             {[
-              { icon: Plus, label: "Register Vehicle", tint: "bg-primary/10 text-primary" },
-              { icon: Car, label: "Vehicle Registry", tint: "bg-accent/10 text-accent" },
-              { icon: Users, label: "User Registry", tint: "bg-warning/10 text-warning" },
-              { icon: RefreshCw, label: "Vehicle Requests", tint: "bg-primary/10 text-primary" },
-              { icon: IdCard, label: "Staff", tint: "bg-success/10 text-success" },
-              { icon: Radio, label: "Boom Barriers", tint: "bg-accent/10 text-accent" },
-              { icon: Wallet, label: "Billing", tint: "bg-warning/10 text-warning" },
+              { icon: Plus, label: "Register Vehicle", tint: "bg-primary/10 text-primary-ink" },
+              { icon: Car, label: "Vehicle Registry", tint: "bg-accent/10 text-accent-ink" },
+              { icon: Users, label: "User Registry", tint: "bg-warning/10 text-warning-ink" },
+              { icon: RefreshCw, label: "Vehicle Requests", tint: "bg-primary/10 text-primary-ink" },
+              { icon: IdCard, label: "Staff", tint: "bg-success/10 text-success-ink" },
+              { icon: Radio, label: "Boom Barriers", tint: "bg-accent/10 text-accent-ink" },
+              { icon: Wallet, label: "Billing", tint: "bg-warning/10 text-warning-ink" },
               { icon: Sparkles, label: "Amenities", tint: "bg-muted text-muted-foreground", soon: true },
             ].map((t, i) => (
               <div key={i} className="flex flex-col items-center gap-1">
@@ -126,7 +126,7 @@ const SLIDES: Slide[] = [
             <span className="h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[8px] font-bold flex items-center justify-center">5</span>
           </div>
           {[
-            { icon: "→", text: "MH-47-BK-1836 entered", tint: "bg-success/10 text-success" },
+            { icon: "→", text: "MH-47-BK-1836 entered", tint: "bg-success/10 text-success-ink" },
             { icon: "←", text: "Guest — Anil exited", tint: "bg-muted text-muted-foreground" },
           ].map((a, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -139,7 +139,7 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    roleLabel: "Admin", screenLabel: "User Registry", roleTint: "bg-warning/15 text-warning",
+    roleLabel: "Admin", screenLabel: "User Registry", roleTint: "bg-warning/15 text-warning-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1">User Registry</p>
@@ -153,14 +153,14 @@ const SLIDES: Slide[] = [
               <p className="text-xs font-medium text-foreground">{u.name}</p>
               {u.flat && <p className="text-[9px] text-muted-foreground">{u.flat}</p>}
             </div>
-            <span className={`text-[9px] font-medium px-2 py-0.5 rounded-full ${u.role === "guard" ? "bg-primary/15 text-primary" : "bg-success/15 text-success"}`}>{u.role}</span>
+            <span className={`text-[9px] font-medium px-2 py-0.5 rounded-full ${u.role === "guard" ? "bg-primary/15 text-primary-ink" : "bg-success/15 text-success-ink"}`}>{u.role}</span>
           </div>
         ))}
       </div>
     ),
   },
   {
-    roleLabel: "Admin", screenLabel: "Maintenance Billing", roleTint: "bg-warning/15 text-warning",
+    roleLabel: "Admin", screenLabel: "Maintenance Billing", roleTint: "bg-warning/15 text-warning-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1">Maintenance Billing</p>
@@ -175,14 +175,14 @@ const SLIDES: Slide[] = [
           <div key={i} className="rounded-lg border border-border p-2 flex items-center justify-between text-xs">
             <span className="text-foreground">{flat}</span>
             <span className="text-muted-foreground">{amt}</span>
-            <span className={paid ? "text-success" : "text-warning"}>{paid ? "Paid" : "Due"}</span>
+            <span className={paid ? "text-success-ink" : "text-warning-ink"}>{paid ? "Paid" : "Due"}</span>
           </div>
         ))}
       </div>
     ),
   },
   {
-    roleLabel: "Admin", screenLabel: "Register Vehicle", roleTint: "bg-warning/15 text-warning",
+    roleLabel: "Admin", screenLabel: "Register Vehicle", roleTint: "bg-warning/15 text-warning-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1"><Plus className="h-3.5 w-3.5" /> Register Vehicle</p>
@@ -195,13 +195,13 @@ const SLIDES: Slide[] = [
             <p className="text-[9px] text-muted-foreground">Owner</p>
             <p className="text-xs font-medium text-foreground">Rahul · A-101</p>
           </div>
-          <span className="inline-block text-[9px] font-medium px-2 py-1 rounded-full bg-primary/15 text-primary">Car</span>
+          <span className="inline-block text-[9px] font-medium px-2 py-1 rounded-full bg-primary/15 text-primary-ink">Car</span>
         </div>
       </div>
     ),
   },
   {
-    roleLabel: "Admin", screenLabel: "Vehicle Registry", roleTint: "bg-warning/15 text-warning",
+    roleLabel: "Admin", screenLabel: "Vehicle Registry", roleTint: "bg-warning/15 text-warning-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1">Vehicle Registry</p>
@@ -222,7 +222,7 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    roleLabel: "Admin", screenLabel: "Vehicle Requests", roleTint: "bg-warning/15 text-warning",
+    roleLabel: "Admin", screenLabel: "Vehicle Requests", roleTint: "bg-warning/15 text-warning-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1"><RefreshCw className="h-3.5 w-3.5" /> Vehicle Requests</p>
@@ -230,22 +230,22 @@ const SLIDES: Slide[] = [
           <p className="text-xs font-medium text-foreground">Add: MH-14-CD-9081</p>
           <p className="text-[9px] text-muted-foreground mt-0.5">Requested by Priya · B-204</p>
           <div className="flex gap-2 mt-2">
-            <span className="flex items-center gap-1 text-[9px] font-medium px-2 py-1 rounded-full bg-success/15 text-success"><Check className="h-2.5 w-2.5" /> Approve</span>
-            <span className="flex items-center gap-1 text-[9px] font-medium px-2 py-1 rounded-full bg-destructive/15 text-destructive"><X className="h-2.5 w-2.5" /> Reject</span>
+            <span className="flex items-center gap-1 text-[9px] font-medium px-2 py-1 rounded-full bg-success/15 text-success-ink"><Check className="h-2.5 w-2.5" /> Approve</span>
+            <span className="flex items-center gap-1 text-[9px] font-medium px-2 py-1 rounded-full bg-destructive/15 text-destructive-ink"><X className="h-2.5 w-2.5" /> Reject</span>
           </div>
         </div>
       </div>
     ),
   },
   {
-    roleLabel: "Admin", screenLabel: "Boom Barriers", roleTint: "bg-warning/15 text-warning",
+    roleLabel: "Admin", screenLabel: "Boom Barriers", roleTint: "bg-warning/15 text-warning-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1"><Radio className="h-3.5 w-3.5" /> Boom Barriers</p>
         {[["Main Gate", true], ["Service Gate", false]].map(([name, online], i) => (
           <div key={i} className="rounded-lg border border-border p-2 flex items-center justify-between">
             <span className="text-xs font-medium text-foreground">{name as string}</span>
-            <span className={`text-[9px] font-medium px-2 py-0.5 rounded-full ${online ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+            <span className={`text-[9px] font-medium px-2 py-0.5 rounded-full ${online ? "bg-success/15 text-success-ink" : "bg-muted text-muted-foreground"}`}>
               {online ? "Online" : "Offline"}
             </span>
           </div>
@@ -254,7 +254,7 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    roleLabel: "Admin", screenLabel: "Amenities Setup", roleTint: "bg-warning/15 text-warning",
+    roleLabel: "Admin", screenLabel: "Amenities Setup", roleTint: "bg-warning/15 text-warning-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1"><Sparkles className="h-3.5 w-3.5" /> Amenities Setup</p>
@@ -269,7 +269,7 @@ const SLIDES: Slide[] = [
   },
   // ── Guard ──────────────────────────────────────────────────────────────
   {
-    roleLabel: "Mahaveer", screenLabel: "Home", roleTint: "bg-primary/15 text-primary",
+    roleLabel: "Mahaveer", screenLabel: "Home", roleTint: "bg-primary/15 text-primary-ink",
     content: (
       <div className="space-y-2">
         <div>
@@ -284,7 +284,7 @@ const SLIDES: Slide[] = [
         </div>
         <div className="rounded-lg bg-success/10 border border-success/30 p-2 flex items-center justify-between">
           <p className="text-[10px] font-semibold text-foreground">Register a delivery</p>
-          <span className="h-6 px-2 rounded-md border border-success/50 text-success flex items-center gap-1 text-[9px] font-bold">
+          <span className="h-6 px-2 rounded-md border border-success/50 text-success-ink flex items-center gap-1 text-[9px] font-bold">
             <Package className="h-2.5 w-2.5" /> Register
           </span>
         </div>
@@ -302,11 +302,11 @@ const SLIDES: Slide[] = [
           <p className="text-[8px] text-muted-foreground mb-1" style={{ fontFamily: LABEL_FONT }}>QUICK ACTIONS</p>
           <div className="grid grid-cols-4 gap-1.5">
             {[
-              { icon: ScanLine, label: "Search & Scan", tint: "bg-primary/10 text-primary" },
-              { icon: Clock, label: "Pending Approvals", tint: "bg-warning/10 text-warning" },
-              { icon: Car, label: "Live Inside", tint: "bg-success/10 text-success" },
-              { icon: Radio, label: "Boom Barriers", tint: "bg-accent/10 text-accent" },
-              { icon: Package, label: "Deliveries", tint: "bg-success/10 text-success" },
+              { icon: ScanLine, label: "Search & Scan", tint: "bg-primary/10 text-primary-ink" },
+              { icon: Clock, label: "Pending Approvals", tint: "bg-warning/10 text-warning-ink" },
+              { icon: Car, label: "Live Inside", tint: "bg-success/10 text-success-ink" },
+              { icon: Radio, label: "Boom Barriers", tint: "bg-accent/10 text-accent-ink" },
+              { icon: Package, label: "Deliveries", tint: "bg-success/10 text-success-ink" },
               { icon: Sparkles, label: "Amenities", tint: "bg-muted text-muted-foreground", soon: true },
             ].map((t, i) => (
               <div key={i} className="flex flex-col items-center gap-1">
@@ -322,7 +322,7 @@ const SLIDES: Slide[] = [
         <div className="rounded-lg border border-border p-2 space-y-1.5">
           <p className="text-[8px] text-muted-foreground" style={{ fontFamily: LABEL_FONT }}>RECENT ACTIVITY</p>
           {[
-            { icon: "→", text: "MH-47-BK-1836 entered", tint: "bg-success/10 text-success" },
+            { icon: "→", text: "MH-47-BK-1836 entered", tint: "bg-success/10 text-success-ink" },
             { icon: "←", text: "Swiggy Delivery exited", tint: "bg-muted text-muted-foreground" },
           ].map((a, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -335,10 +335,10 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    roleLabel: "Mahaveer", screenLabel: "Scan Result", roleTint: "bg-primary/15 text-primary",
+    roleLabel: "Mahaveer", screenLabel: "Scan Result", roleTint: "bg-primary/15 text-primary-ink",
     content: (
       <div className="space-y-3 flex flex-col items-center text-center pt-6">
-        <span className="h-14 w-14 rounded-full bg-success/15 text-success flex items-center justify-center">
+        <span className="h-14 w-14 rounded-full bg-success/15 text-success-ink flex items-center justify-center">
           <CheckCircle2 className="h-8 w-8" />
         </span>
         <div>
@@ -352,7 +352,7 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    roleLabel: "Mahaveer", screenLabel: "Live Inside", roleTint: "bg-primary/15 text-primary",
+    roleLabel: "Mahaveer", screenLabel: "Live Inside", roleTint: "bg-primary/15 text-primary-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1">Currently Inside (14)</p>
@@ -366,27 +366,27 @@ const SLIDES: Slide[] = [
               <p className="text-xs font-medium text-foreground">{v.name}</p>
               <p className="text-[9px] text-muted-foreground">{v.flat}</p>
             </div>
-            <span className="text-[9px] text-success">{v.type}</span>
+            <span className="text-[9px] text-success-ink">{v.type}</span>
           </div>
         ))}
       </div>
     ),
   },
   {
-    roleLabel: "Mahaveer", screenLabel: "Pending Approvals", roleTint: "bg-primary/15 text-primary",
+    roleLabel: "Mahaveer", screenLabel: "Pending Approvals", roleTint: "bg-primary/15 text-primary-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Pending Approvals</p>
         <div className="rounded-lg border border-border p-3">
           <p className="text-xs font-medium text-foreground">Guest — Anil</p>
           <p className="text-[9px] text-muted-foreground mt-0.5">Waiting on Rahul, A-101</p>
-          <span className="inline-block mt-2 text-[9px] font-medium px-2 py-1 rounded-full bg-warning/15 text-warning">Awaiting response</span>
+          <span className="inline-block mt-2 text-[9px] font-medium px-2 py-1 rounded-full bg-warning/15 text-warning-ink">Awaiting response</span>
         </div>
       </div>
     ),
   },
   {
-    roleLabel: "Mahaveer", screenLabel: "Register Delivery", roleTint: "bg-primary/15 text-primary",
+    roleLabel: "Mahaveer", screenLabel: "Register Delivery", roleTint: "bg-primary/15 text-primary-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1"><Package className="h-3.5 w-3.5" /> Register Delivery</p>
@@ -399,13 +399,13 @@ const SLIDES: Slide[] = [
             <p className="text-[9px] text-muted-foreground">Agent</p>
             <p className="text-xs font-medium text-foreground">Amazon Delivery</p>
           </div>
-          <span className="inline-block text-[9px] font-medium px-2 py-1 rounded-full bg-warning/15 text-warning">Notifying resident…</span>
+          <span className="inline-block text-[9px] font-medium px-2 py-1 rounded-full bg-warning/15 text-warning-ink">Notifying resident…</span>
         </div>
       </div>
     ),
   },
   {
-    roleLabel: "Mahaveer", screenLabel: "Boom Barriers", roleTint: "bg-primary/15 text-primary",
+    roleLabel: "Mahaveer", screenLabel: "Boom Barriers", roleTint: "bg-primary/15 text-primary-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1"><Radio className="h-3.5 w-3.5" /> Boom Barriers</p>
@@ -418,7 +418,7 @@ const SLIDES: Slide[] = [
   },
   // ── Resident ───────────────────────────────────────────────────────────
   {
-    roleLabel: "Rahul", screenLabel: "Home", roleTint: "bg-success/15 text-success",
+    roleLabel: "Rahul", screenLabel: "Home", roleTint: "bg-success/15 text-success-ink",
     content: (
       <div className="space-y-2.5">
         <div>
@@ -430,18 +430,18 @@ const SLIDES: Slide[] = [
             <p className="text-[10px] text-muted-foreground">Outstanding dues</p>
             <p className="text-lg font-bold text-foreground">₹2,450</p>
           </div>
-          <ArrowRight className="h-4 w-4 text-primary" />
+          <ArrowRight className="h-4 w-4 text-primary-ink" />
         </div>
         <div>
           <p className="text-[8px] text-muted-foreground mb-1" style={{ fontFamily: LABEL_FONT }}>QUICK ACTIONS</p>
           <div className="grid grid-cols-4 gap-1.5">
             {[
-              { icon: QrCode, label: "Guest Pass", tint: "bg-primary/10 text-primary" },
-              { icon: Car, label: "Vehicles", tint: "bg-accent/10 text-accent" },
-              { icon: Wallet, label: "Dues", tint: "bg-warning/10 text-warning" },
-              { icon: Package, label: "Deliveries", tint: "bg-success/10 text-success" },
-              { icon: Users, label: "House Helps", tint: "bg-accent/10 text-accent" },
-              { icon: ClipboardList, label: "History", tint: "bg-primary/10 text-primary" },
+              { icon: QrCode, label: "Guest Pass", tint: "bg-primary/10 text-primary-ink" },
+              { icon: Car, label: "Vehicles", tint: "bg-accent/10 text-accent-ink" },
+              { icon: Wallet, label: "Dues", tint: "bg-warning/10 text-warning-ink" },
+              { icon: Package, label: "Deliveries", tint: "bg-success/10 text-success-ink" },
+              { icon: Users, label: "House Helps", tint: "bg-accent/10 text-accent-ink" },
+              { icon: ClipboardList, label: "History", tint: "bg-primary/10 text-primary-ink" },
               { icon: Sparkles, label: "Amenities", tint: "bg-muted text-muted-foreground", soon: true },
             ].map((t, i) => (
               <div key={i} className="flex flex-col items-center gap-1">
@@ -457,7 +457,7 @@ const SLIDES: Slide[] = [
         <div className="rounded-lg border border-border p-2 space-y-1.5">
           <p className="text-[8px] text-muted-foreground" style={{ fontFamily: LABEL_FONT }}>RECENT ACTIVITY</p>
           {[
-            { icon: "→", text: "Guest — Anil entered", tint: "bg-success/10 text-success" },
+            { icon: "→", text: "Guest — Anil entered", tint: "bg-success/10 text-success-ink" },
             { icon: "←", text: "Swiggy Delivery exited", tint: "bg-muted text-muted-foreground" },
           ].map((a, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -470,7 +470,7 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    roleLabel: "Rahul", screenLabel: "Guest Pass", roleTint: "bg-success/15 text-success",
+    roleLabel: "Rahul", screenLabel: "Guest Pass", roleTint: "bg-success/15 text-success-ink",
     content: (
       <div className="space-y-3 flex flex-col items-center text-center pt-2">
         <p className="text-sm font-semibold text-foreground self-start">Guest Pass</p>
@@ -485,7 +485,7 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    roleLabel: "Rahul", screenLabel: "My Dues", roleTint: "bg-success/15 text-success",
+    roleLabel: "Rahul", screenLabel: "My Dues", roleTint: "bg-success/15 text-success-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1">My Dues</p>
@@ -494,25 +494,25 @@ const SLIDES: Slide[] = [
           <div className="flex justify-between text-xs"><span className="text-muted-foreground">Sinking Fund</span><span className="text-foreground">₹450</span></div>
           <div className="flex justify-between text-xs font-semibold pt-1 border-t border-border"><span>Total</span><span>₹2,450</span></div>
         </div>
-        <span className="inline-block text-[9px] font-medium px-2 py-1 rounded-full bg-warning/15 text-warning">Due 10 August</span>
+        <span className="inline-block text-[9px] font-medium px-2 py-1 rounded-full bg-warning/15 text-warning-ink">Due 10 August</span>
       </div>
     ),
   },
   {
-    roleLabel: "Rahul", screenLabel: "Amenities", roleTint: "bg-success/15 text-success",
+    roleLabel: "Rahul", screenLabel: "Amenities", roleTint: "bg-success/15 text-success-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1"><CalendarCheck className="h-3.5 w-3.5" /> Book an Amenity</p>
         <div className="rounded-lg border border-border p-3">
           <p className="text-xs font-medium text-foreground">Clubhouse</p>
           <p className="text-[10px] text-muted-foreground mt-0.5">Sat, 8 Aug · 6:00 – 8:00 PM</p>
-          <span className="inline-block mt-2 text-[9px] font-medium px-2 py-1 rounded-full bg-success/15 text-success">Confirmed</span>
+          <span className="inline-block mt-2 text-[9px] font-medium px-2 py-1 rounded-full bg-success/15 text-success-ink">Confirmed</span>
         </div>
       </div>
     ),
   },
   {
-    roleLabel: "Rahul", screenLabel: "My Vehicles", roleTint: "bg-success/15 text-success",
+    roleLabel: "Rahul", screenLabel: "My Vehicles", roleTint: "bg-success/15 text-success-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1"><Car className="h-3.5 w-3.5" /> My Vehicles</p>
@@ -526,7 +526,7 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    roleLabel: "Rahul", screenLabel: "Deliveries", roleTint: "bg-success/15 text-success",
+    roleLabel: "Rahul", screenLabel: "Deliveries", roleTint: "bg-success/15 text-success-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1"><Package className="h-3.5 w-3.5" /> Deliveries</p>
@@ -534,15 +534,15 @@ const SLIDES: Slide[] = [
           <p className="text-xs font-medium text-foreground">Amazon Delivery</p>
           <p className="text-[9px] text-muted-foreground mt-0.5">Waiting at the gate</p>
           <div className="flex gap-2 mt-2">
-            <span className="flex items-center gap-1 text-[9px] font-medium px-2 py-1 rounded-full bg-success/15 text-success"><Check className="h-2.5 w-2.5" /> Approve</span>
-            <span className="flex items-center gap-1 text-[9px] font-medium px-2 py-1 rounded-full bg-destructive/15 text-destructive"><X className="h-2.5 w-2.5" /> Reject</span>
+            <span className="flex items-center gap-1 text-[9px] font-medium px-2 py-1 rounded-full bg-success/15 text-success-ink"><Check className="h-2.5 w-2.5" /> Approve</span>
+            <span className="flex items-center gap-1 text-[9px] font-medium px-2 py-1 rounded-full bg-destructive/15 text-destructive-ink"><X className="h-2.5 w-2.5" /> Reject</span>
           </div>
         </div>
       </div>
     ),
   },
   {
-    roleLabel: "Rahul", screenLabel: "Visit History", roleTint: "bg-success/15 text-success",
+    roleLabel: "Rahul", screenLabel: "Visit History", roleTint: "bg-success/15 text-success-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1"><ClipboardList className="h-3.5 w-3.5" /> Visit History</p>
@@ -559,7 +559,7 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    roleLabel: "Rahul", screenLabel: "House Helps", roleTint: "bg-success/15 text-success",
+    roleLabel: "Rahul", screenLabel: "House Helps", roleTint: "bg-success/15 text-success-ink",
     content: (
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1"><Users className="h-3.5 w-3.5" /> House Helps</p>
@@ -641,7 +641,7 @@ const Index = () => {
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-sm">
           <CardContent className="p-8 text-center space-y-3">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary-ink mx-auto" />
             <p className="text-muted-foreground text-sm">Checking reset link...</p>
           </CardContent>
         </Card>
@@ -656,7 +656,7 @@ const Index = () => {
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="h-9 w-9 rounded-lg bg-primary/15 flex items-center justify-center">
-            <Building2 className="h-5 w-5 text-primary" />
+            <Building2 className="h-5 w-5 text-primary-ink" />
           </div>
           <span className="font-bold text-foreground text-lg" style={{ fontFamily: DISPLAY_FONT }}>ManageSociety</span>
         </div>
@@ -677,7 +677,7 @@ const Index = () => {
       <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
       <div className="relative max-w-6xl mx-auto px-4 py-16 sm:py-20 grid lg:grid-cols-2 gap-12 items-center">
         <div className="text-center lg:text-left">
-          <p className="text-xs font-semibold tracking-widest text-primary uppercase mb-3" style={{ fontFamily: LABEL_FONT }}>
+          <p className="text-xs font-semibold tracking-widest text-primary-ink uppercase mb-3" style={{ fontFamily: LABEL_FONT }}>
             Complete Society Management
           </p>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground mb-5" style={{ fontFamily: DISPLAY_FONT }}>
@@ -774,7 +774,7 @@ const Index = () => {
         <Link to="/admin" className="group">
           <Card className="h-full transition-all hover:border-warning/50 hover:shadow-lg hover:-translate-y-1">
             <CardContent className="p-6 text-center">
-              <div className="mx-auto h-14 w-14 rounded-xl bg-warning/15 text-warning flex items-center justify-center mb-4">
+              <div className="mx-auto h-14 w-14 rounded-xl bg-warning/15 text-warning-ink flex items-center justify-center mb-4">
                 <Shield className="h-7 w-7" />
               </div>
               <p className="font-bold text-foreground text-lg mb-2">Admin / Committee</p>
@@ -785,7 +785,7 @@ const Index = () => {
         <Link to="/guard" className="group">
           <Card className="h-full transition-all hover:border-primary/50 hover:shadow-lg hover:-translate-y-1">
             <CardContent className="p-6 text-center">
-              <div className="mx-auto h-14 w-14 rounded-xl bg-primary/15 text-primary flex items-center justify-center mb-4">
+              <div className="mx-auto h-14 w-14 rounded-xl bg-primary/15 text-primary-ink flex items-center justify-center mb-4">
                 <ScanLine className="h-7 w-7" />
               </div>
               <p className="font-bold text-foreground text-lg mb-2">Security Guard</p>
@@ -796,7 +796,7 @@ const Index = () => {
         <Link to="/resident" className="group">
           <Card className="h-full transition-all hover:border-success/50 hover:shadow-lg hover:-translate-y-1">
             <CardContent className="p-6 text-center">
-              <div className="mx-auto h-14 w-14 rounded-xl bg-success/15 text-success flex items-center justify-center mb-4">
+              <div className="mx-auto h-14 w-14 rounded-xl bg-success/15 text-success-ink flex items-center justify-center mb-4">
                 <ClipboardList className="h-7 w-7" />
               </div>
               <p className="font-bold text-foreground text-lg mb-2">Residents</p>
@@ -818,11 +818,11 @@ const Index = () => {
       <Link to="/article/digital-vs-paper-society-management" className="group block rounded-2xl border border-border bg-card hover:border-primary/40 transition-colors p-6 sm:p-8">
         <div className="flex items-start gap-4">
           <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-            <FileText className="h-6 w-6 text-primary" />
+            <FileText className="h-6 w-6 text-primary-ink" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-widest text-primary mb-2">Society Management</p>
-            <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors leading-snug mb-2">
+            <p className="text-xs font-semibold uppercase tracking-widest text-primary-ink mb-2">Society Management</p>
+            <h3 className="text-lg font-bold text-foreground group-hover:text-primary-ink transition-colors leading-snug mb-2">
               Why Your Housing Society Needs to Move Beyond the Paper Register
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed">

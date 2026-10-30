@@ -189,10 +189,10 @@ const VehicleChangeRequestsAdmin = ({ onChanged }: Props) => {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <ClipboardCheck className="h-5 w-5 text-primary" />
+          <ClipboardCheck className="h-5 w-5 text-primary-ink" />
           Vehicle Change Requests
           {pending.length > 0 && (
-            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-warning/20 text-warning border border-warning/30">
+            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-warning/20 text-warning-ink border border-warning/30">
               {pending.length} pending
             </span>
           )}
@@ -208,7 +208,7 @@ const VehicleChangeRequestsAdmin = ({ onChanged }: Props) => {
             <div key={r.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase border ${r.request_type === "add" ? "bg-success/15 text-success border-success/30" : "bg-destructive/15 text-destructive border-destructive/30"}`}>
+                  <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase border ${r.request_type === "add" ? "bg-success/15 text-success-ink border-success/30" : "bg-destructive/15 text-destructive-ink border-destructive/30"}`}>
                     {r.request_type}
                   </span>
                   <p className="font-bold text-foreground">{r.vehicle_number}</p>
