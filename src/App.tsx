@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import AdSense from "@/components/AdSense";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -56,6 +57,7 @@ const App = () => (
         <AuthProvider>
           <FingerprintProvider>
           <main>
+          <AdSense />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
