@@ -2,6 +2,25 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    // These paths are read TWICE, by two tools, with different consequences.
+    //
+    // TypeScript needs them because the shared modules under <repo>/src/lib
+    // are compiled from where they sit, and a bare specifier there resolves
+    // upward from ../../src/lib — reaching the repo root, where CI never
+    // installs node_modules. Without a mapping, tsc cannot find them at all.
+    //
+    // Expo's bundler ALSO reads this block and turns each entry into a
+    // RUNTIME alias. So every mapping must name the real package. Pointing
+    // "qrcode" at ./node_modules/@types/qrcode satisfied tsc and broke the
+    // release bundle: Metro loaded a types-only package as the
+    // implementation and failed with "main module field could not be
+    // resolved", which only surfaced in a Play Store AAB build.
+    //
+    // So "qrcode" is NOT mapped here. The bundler resolves it by its own
+    // rules (metro.config.js already points nodeModulesPaths at this
+    // app's node_modules, where the real package is a dependency), and
+    // tsc gets its declarations from types/qrcode.d.ts. Any mapping
+    // added below must name a package that works at runtime too.
     "paths": {
       "@/*": [
         "./src/*"
@@ -11,9 +30,6 @@
       ],
       "@supabase/supabase-js": [
         "./node_modules/@supabase/supabase-js"
-      ],
-      "qrcode": [
-        "./node_modules/@types/qrcode"
       ]
     }
   },
