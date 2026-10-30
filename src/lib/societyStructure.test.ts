@@ -3,6 +3,7 @@ import {
   generateFlatNumbers, normalizeStructure, toEditableState, normalizeTowers,
   emptyWing, emptyTower,
   parseStoredStructure, towerForWing, formatFlatAddress, flatsForWing, allWings,
+  structureFields, addressFor,
   type NormalizedWing, type NormalizedTower, type TowerStructure,
 } from "@/lib/societyStructure";
 
@@ -269,5 +270,95 @@ describe("allWings", () => {
 
   it("is empty with no towers", () => {
     expect(allWings([])).toEqual([]);
+  });
+});
+
+// ─── Optional address fields ───────────────────────────────────────────────
+
+describe("structureFields", () => {
+  const towers = (spec: [string, string[]][]): NormalizedTower[] =>
+    spec.map(([tower_name, wings]) => ({
+      tower_name,
+      wings: wings.map((wing) => ({ wing, flat_from: 101, flat_to: 104, floor_wise: false })),
+    }));
+
+  it("shows both when a society really has both", () => {
+    expect(structureFields(towers([["Tower 1", ["A", "B"]], ["Tower 2", ["C"]]])))
+      .toEqual({ tower: true, wing: true });
+  });
+
+  it("hides a single tower, which tells nobody anything", () => {
+    // One tower named "Tower 1" is a dropdown with one option that a
+    // guard taps past at every gate entry.
+    expect(structureFields(towers([["Tower 1", ["A", "B"]]])))
+      .toEqual({ tower: false, wing: true });
+  });
+
+  it("hides a single wing", () => {
+    expect(structureFields(towers([["Tower 1", ["A"]], ["Tower 2", ["A"]]])))
+      .toEqual({ tower: true, wing: false });
+  });
+
+  it("hides both in a single standalone building", () => {
+    expect(structureFields(towers([["Main", ["A"]]])))
+      .toEqual({ tower: false, wing: false });
+  });
+
+  it("counts DISTINCT values, not entries", () => {
+    // Three wings all called "A" is one wing with a data-entry problem.
+    // Offering a guard three identical options helps nobody.
+    expect(structureFields(towers([["T", ["A", "A", "A"]]])).wing).toBe(false);
+    expect(structureFields(towers([["T", ["A", "B", "A"]]])).wing).toBe(true);
+  });
+
+  it("ignores blank and whitespace names", () => {
+    expect(structureFields(towers([["", ["A", " "]], ["  ", ["A"]]])))
+      .toEqual({ tower: false, wing: false });
+  });
+
+  it("hides both for a society with no structure at all", () => {
+    expect(structureFields([])).toEqual({ tower: false, wing: false });
+  });
+});
+
+describe("addressFor", () => {
+  const multi: NormalizedTower[] = [
+    { tower_name: "Tower 1", wings: [{ wing: "A", flat_from: 101, flat_to: 104, floor_wise: false }] },
+    { tower_name: "Tower 2", wings: [{ wing: "B", flat_from: 101, flat_to: 104, floor_wise: false }] },
+  ];
+  const oneWing: NormalizedTower[] = [
+    { tower_name: "Main", wings: [{ wing: "A", flat_from: 101, flat_to: 104, floor_wise: false }] },
+  ];
+  const wingsOnly: NormalizedTower[] = [
+    { tower_name: "Main", wings: [
+      { wing: "A", flat_from: 101, flat_to: 104, floor_wise: false },
+      { wing: "B", flat_from: 201, flat_to: 204, floor_wise: false },
+    ] },
+  ];
+
+  it("names both where both matter", () => {
+    // Two towers and two distinct wings, so both fields earn their place.
+    expect(addressFor(multi, "B", "1201")).toBe("Tower 2 · Wing B · 1201");
+  });
+
+  it("names the tower alone when every tower has one wing of the same name", () => {
+    const sameWing: NormalizedTower[] = [
+      { tower_name: "Tower 1", wings: [{ wing: "A", flat_from: 101, flat_to: 104, floor_wise: false }] },
+      { tower_name: "Tower 2", wings: [{ wing: "A", flat_from: 101, flat_to: 104, floor_wise: false }] },
+    ];
+    expect(addressFor(sameWing, "A", "1201")).toBe("Tower 1 · 1201");
+  });
+
+  it("drops the tower where there is only one", () => {
+    expect(addressFor(wingsOnly, "B", "1201")).toBe("B-1201");
+  });
+
+  it("is a bare flat number in a single-wing building", () => {
+    // Which is what the residents there call it anyway.
+    expect(addressFor(oneWing, "A", "1201")).toBe("1201");
+  });
+
+  it("falls back to the flat number with no structure at all", () => {
+    expect(addressFor([], "A", "1201")).toBe("1201");
   });
 });

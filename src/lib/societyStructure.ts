@@ -246,3 +246,66 @@ export const allWings = (
   towers: NormalizedTower[],
 ): { tower_name: string; wing: string }[] =>
   towers.flatMap((tower) => tower.wings.map((w) => ({ tower_name: tower.tower_name, wing: w.wing })));
+
+// ─── Which address fields a society actually needs ──────────────────────────
+//
+// Towers and wings are optional. A single standalone building has no
+// towers worth naming; a small society may have one wing, or none, and
+// flat numbers alone identify a home.
+//
+// Carrying a field a society does not use is not merely untidy — it is
+// a dropdown a guard has to tap past at a gate, every time, with one
+// option in it. So a field with fewer than TWO distinct values is
+// hidden everywhere: the guard's flat picker, the resident's forms, the
+// address shown on a card.
+//
+// Fewer than two, not zero: one tower named "Tower 1" tells nobody
+// anything they did not already know from standing in it.
+
+export interface StructureFields {
+  /** Show a tower picker, and include the tower in an address. */
+  tower: boolean;
+  /** Show a wing picker, and include the wing in an address. */
+  wing: boolean;
+}
+
+/**
+ * Which address fields are worth showing for this society.
+ *
+ * Counts DISTINCT values rather than entries: three wings all called
+ * "A" is one wing with a data-entry problem, and asking a guard to
+ * choose between three identical options helps nobody.
+ */
+export function structureFields(towers: NormalizedTower[]): StructureFields {
+  const towerNames = new Set(
+    towers.map((t) => (t.tower_name ?? "").trim()).filter(Boolean),
+  );
+  const wingNames = new Set(
+    towers.flatMap((t) => t.wings.map((w) => (w.wing ?? "").trim())).filter(Boolean),
+  );
+  return {
+    tower: towerNames.size >= 2,
+    wing: wingNames.size >= 2,
+  };
+}
+
+/**
+ * A flat's address, with only the parts this society distinguishes.
+ *
+ * "Tower 2 · Wing B · 1201" where both matter, "B-1201" where only the
+ * wing does, and a bare "1201" in a single-wing building — which is
+ * what residents there call it anyway.
+ */
+export function addressFor(
+  towers: NormalizedTower[],
+  wing: string,
+  flatNumber: string,
+): string {
+  const fields = structureFields(towers);
+  const tower = fields.tower ? towerForWing(towers, wing) : undefined;
+
+  if (tower && fields.wing) return `${tower} · Wing ${wing} · ${flatNumber}`;
+  if (tower) return `${tower} · ${flatNumber}`;
+  if (fields.wing && wing) return `${wing}-${flatNumber}`;
+  return flatNumber;
+}
