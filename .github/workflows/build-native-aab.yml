@@ -1,11 +1,13 @@
-name: Build Guard Native AAB (Play Store)
+name: Build Native AAB (Play Store)
 
-# Builds a signed .aab of the NATIVE guard app (native/guard) for Google Play.
+# Builds a signed .aab of EITHER native app -- native/guard or
+# native/resident -- for Google Play.
 #
-# This app publishes to the SAME Play listing as the Capacitor guard app --
-# both are in.managesociety.guard, signed with the same GUARD_* keystore --
-# because it is meant to REPLACE it. Shipping a bundle from here and rolling
-# it out means every guard's next app update swaps the WebView shell for the
+# Each publishes to the SAME Play listing as its Capacitor counterpart: the
+# application ids match (in.managesociety.guard / in.managesociety.resident)
+# and the same GUARD_* / RESIDENT_* keystore signs it, because the native app
+# is meant to REPLACE the shell. Shipping a bundle from here and rolling it
+# out means every user's next app update swaps the WebView shell for the
 # native app. There is no going back short of publishing the Capacitor app
 # again with a higher versionCode.
 #
@@ -31,14 +33,29 @@ name: Build Guard Native AAB (Play Store)
 #                 over the listing.
 #   versionName = the "version_name" box when given, else <date>.<run>.
 #
-# One-time setup -- repo secrets, already present for the Capacitor app:
+# One-time setup -- repo secrets, already present for the Capacitor apps:
 #   GUARD_KEYSTORE_BASE64, GUARD_STORE_PASSWORD, GUARD_KEY_ALIAS, GUARD_KEY_PASSWORD
+#   RESIDENT_KEYSTORE_BASE64, RESIDENT_STORE_PASSWORD, RESIDENT_KEY_ALIAS, RESIDENT_KEY_PASSWORD
+#
+# The native app MUST be signed with the same key as the Capacitor app it
+# replaces. Play rejects an update signed with a different one, and there is
+# no way to change a listing's signing key afterwards without Play App
+# Signing key rotation -- so a wrong key here is not a build you redo, it is
+# a listing you cannot update.
 #
 # Output: app-release.aab under the run's Artifacts, ready for Play Console.
 
 on:
   workflow_dispatch:
     inputs:
+      app:
+        description: "Which app to publish"
+        type: choice
+        required: true
+        default: guard
+        options:
+          - guard
+          - resident
       version_name:
         description: "Version name shown to users (e.g. 4.0). Empty for <date>.<run>."
         required: false
@@ -53,8 +70,7 @@ on:
           - "arm64 only — drops pre-2017 hardware"
 
 env:
-  APP_DIR: native/guard
-  APP_ID: in.managesociety.guard
+  APP: ${{ inputs.app }}
   BUNDLETOOL_VERSION: 1.18.1
 
 jobs:
@@ -62,6 +78,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Everything that differs between the two apps. The application id
+      # comes from the app's own app.json rather than being restated
+      # here, so the two cannot disagree -- and that id is exactly what
+      # Play accepts updates under.
+      - name: Resolve the app
+        id: app
+        run: |
+          set -euo pipefail
+          DIR="native/${APP}"
+          [[ -d "$DIR" ]] || { echo "::error::No such app: ${APP}"; exit 1; }
+          ID=$(node -p "require('./${DIR}/app.json').expo.android.package")
+          [[ -n "$ID" ]] || { echo "::error::${DIR}/app.json has no android.package"; exit 1; }
+          # GUARD_* or RESIDENT_*, matching the Capacitor workflow's secrets.
+          echo "dir=${DIR}" >> "$GITHUB_OUTPUT"
+          echo "id=${ID}"   >> "$GITHUB_OUTPUT"
+          echo "secret_prefix=$(echo "${APP}" | tr '[:lower:]' '[:upper:]')" >> "$GITHUB_OUTPUT"
+          echo "Publishing ${APP} (${ID})"
 
       - uses: actions/setup-node@v4
         with:
@@ -83,7 +117,7 @@ jobs:
           set -euo pipefail
           # Minutes since 2024-01-01T00:00:00Z. Identical to
           # build-release-aabs.yml on purpose: one timeline, shared with the
-          # Capacitor guard app this replaces, so a code is never reused and
+          # Capacitor app this replaces, so a code is never reused and
           # never goes backwards.
           CODE=$(( ( $(date -u +%s) - 1704067200 ) / 60 ))
           if [[ -n "${INPUT_VERSION_NAME}" ]]; then
@@ -99,26 +133,33 @@ jobs:
           echo "Version ${NAME} (versionCode ${CODE})"
 
       - name: Install dependencies
-        working-directory: ${{ env.APP_DIR }}
+        working-directory: ${{ steps.app.outputs.dir }}
         run: npm ci
 
       # Same check as build-guard-native.yml: a Play bundle embeds the
       # JavaScript, so a missing shared module would ship as a blank screen on
       # a guard's phone rather than fail here.
-      - name: Check the shared modules the app imports are present
+      # Derived from the app's own imports, not listed here: a hardcoded
+      # list is a second place to update, and the failure it exists to
+      # catch would then sail past. A Play bundle embeds the JavaScript,
+      # so a missing module ships as a blank screen.
+      - name: Check the shared modules this app imports are present
         run: |
           set -euo pipefail
+          DIR="${{ steps.app.outputs.dir }}"
+          MODULES=$(grep -rhoE '@core/[A-Za-z0-9_-]+' "$DIR/src" "$DIR/App.tsx" | sort -u | sed 's|@core/||')
+          [[ -n "$MODULES" ]] || { echo "::error::Found no @core imports in $DIR"; exit 1; }
           missing=0
-          for f in gateScan gatePorts visitorFlow visitorFlowPorts deliveries societyStructure staffAttendance; do
-            if [[ ! -f "src/lib/$f.ts" ]]; then
-              echo "::error::src/lib/$f.ts is missing; native/guard imports it as @core/$f"
+          for f in $MODULES; do
+            if [[ ! -f "src/lib/$f.ts" && ! -f "src/lib/$f.tsx" ]]; then
+              echo "::error::src/lib/$f.ts is missing; $DIR imports it as @core/$f"
               missing=1
             fi
           done
           [[ $missing -eq 0 ]] || exit 1
 
       - name: Typecheck
-        working-directory: ${{ env.APP_DIR }}
+        working-directory: ${{ steps.app.outputs.dir }}
         run: npx tsc --noEmit
 
       # app.config.js reads these and overrides what app.json declares. The
@@ -127,15 +168,16 @@ jobs:
       # so a Gradle -P property would arrive too late, which is the one way
       # this differs from the Capacitor workflow.
       - name: Generate the native Android project
-        working-directory: ${{ env.APP_DIR }}
+        working-directory: ${{ steps.app.outputs.dir }}
         env:
           APP_VERSION_CODE: ${{ steps.v.outputs.code }}
           APP_VERSION_NAME: ${{ steps.v.outputs.name }}
         run: npx expo prebuild --platform android --clean
 
       - name: Check the identity Play will see
-        working-directory: ${{ env.APP_DIR }}
+        working-directory: ${{ steps.app.outputs.dir }}
         env:
+          APP_ID: ${{ steps.app.outputs.id }}
           VERSION_CODE: ${{ steps.v.outputs.code }}
           VERSION_NAME: ${{ steps.v.outputs.name }}
         run: |
@@ -166,7 +208,7 @@ jobs:
             '[.client[].client_info.android_client_info.package_name] | index($id)' "$GS" > /dev/null || {
             echo "::error::google-services.json has no client for ${APP_ID}; push would not initialise."; exit 1; }
 
-          # A society guard app has no business asking for the microphone, and
+          # Neither app has any business asking for the microphone, and
           # a permission Play users can see is worth failing a build over.
           # expo-camera adds RECORD_AUDIO unless recordAudioAndroid is false
           # in app.json.
@@ -179,8 +221,8 @@ jobs:
           grep -oE 'android:name="android\.permission\.[A-Z_]+"' "$MANIFEST" | sort -u
 
       - name: Decode the release keystore
-        working-directory: ${{ env.APP_DIR }}/android/app
-        run: echo "${{ secrets.GUARD_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+        working-directory: ${{ steps.app.outputs.dir }}/android/app
+        run: echo "${{ secrets[format('{0}_KEYSTORE_BASE64', steps.app.outputs.secret_prefix)] }}" | base64 -d > release.keystore
 
       # Signed through AGP's injected signing properties rather than by
       # editing the generated build.gradle, which `expo prebuild --clean`
@@ -193,14 +235,14 @@ jobs:
       # accepted into a track and fail to update anyone's app. The next step
       # compares certificate fingerprints rather than trusting it.
       - name: Build the signed AAB
-        working-directory: ${{ env.APP_DIR }}/android
+        working-directory: ${{ steps.app.outputs.dir }}/android
         env:
           VERSION_CODE: ${{ steps.v.outputs.code }}
           VERSION_NAME: ${{ steps.v.outputs.name }}
           ARCH_CHOICE: ${{ inputs.architectures }}
-          STORE_PASSWORD: ${{ secrets.GUARD_STORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.GUARD_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.GUARD_KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets[format('{0}_STORE_PASSWORD', steps.app.outputs.secret_prefix)] }}
+          KEY_ALIAS: ${{ secrets[format('{0}_KEY_ALIAS', steps.app.outputs.secret_prefix)] }}
+          KEY_PASSWORD: ${{ secrets[format('{0}_KEY_PASSWORD', steps.app.outputs.secret_prefix)] }}
         run: |
           set -euo pipefail
           case "${ARCH_CHOICE}" in
@@ -218,11 +260,12 @@ jobs:
             -Pandroid.injected.signing.key.alias="${KEY_ALIAS}" \
             -Pandroid.injected.signing.key.password="${KEY_PASSWORD}"
 
-      - name: Check it was signed with YOUR key, not the debug one
-        working-directory: ${{ env.APP_DIR }}/android
+      - name: Check it was signed with the RIGHT key, not the debug one
+        working-directory: ${{ steps.app.outputs.dir }}/android
         env:
-          STORE_PASSWORD: ${{ secrets.GUARD_STORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.GUARD_KEY_ALIAS }}
+          STORE_PASSWORD: ${{ secrets[format('{0}_STORE_PASSWORD', steps.app.outputs.secret_prefix)] }}
+          KEY_ALIAS: ${{ secrets[format('{0}_KEY_ALIAS', steps.app.outputs.secret_prefix)] }}
+          SECRET_PREFIX: ${{ steps.app.outputs.secret_prefix }}
         run: |
           set -euo pipefail
           AAB=app/build/outputs/bundle/release/app-release.aab
@@ -241,7 +284,7 @@ jobs:
             -alias "${KEY_ALIAS}" \
             | grep -oE 'SHA256: [0-9A-F:]+' | head -1 | cut -d' ' -f2 || true)
           [[ -n "${EXPECTED}" ]] || {
-            echo "::error::Could not read a SHA-256 fingerprint for alias '${KEY_ALIAS}' out of the keystore. Check GUARD_KEY_ALIAS and GUARD_STORE_PASSWORD."; exit 1; }
+            echo "::error::Could not read a SHA-256 fingerprint for alias '${KEY_ALIAS}' out of the keystore. Check the ${SECRET_PREFIX}_KEY_ALIAS and ${SECRET_PREFIX}_STORE_PASSWORD secrets."; exit 1; }
 
           # The fingerprint actually on the bundle. An .aab is jar-signed, so
           # the certificate sits in META-INF as .RSA, .DSA or .EC.
@@ -255,17 +298,17 @@ jobs:
           echo "expected ${EXPECTED}"
           echo "actual   ${ACTUAL}"
           if [[ "${EXPECTED}" != "${ACTUAL}" ]]; then
-            echo "::error::The bundle is NOT signed with the GUARD keystore. Expo signs release with the debug key by default, so the injected signing properties did not apply. Do not upload this."
+            echo "::error::The bundle is NOT signed with the ${APP} keystore. Expo signs release with the debug key by default, so the injected signing properties did not apply. Do not upload this."
             exit 1
           fi
-          echo "Signed with the GUARD release key."
+          echo "Signed with the ${APP} release key."
 
       - name: Clean up the keystore
         if: always()
-        run: rm -f "${APP_DIR}/android/app/release.keystore"
+        run: rm -f "${{ steps.app.outputs.dir }}/android/app/release.keystore"
 
       - name: Inspect the finished bundle
-        working-directory: ${{ env.APP_DIR }}/android
+        working-directory: ${{ steps.app.outputs.dir }}/android
         env:
           VERSION_CODE: ${{ steps.v.outputs.code }}
           VERSION_NAME: ${{ steps.v.outputs.name }}
@@ -287,7 +330,7 @@ jobs:
 
           SIZE_MB=$(( $(stat -c %s "$AAB") / 1048576 ))
           {
-            echo "## Guard native — ${VERSION_NAME} (versionCode ${VERSION_CODE})"
+            echo "## ${APP} native — ${VERSION_NAME} (versionCode ${VERSION_CODE})"
             echo ""
             echo "Bundle: ${SIZE_MB} MB · package ${APP_ID} · signed with the GUARD release key."
             echo ""
@@ -295,9 +338,9 @@ jobs:
             echo "Play Console. Play splits it per device, so what a guard actually"
             echo "downloads is smaller than this."
             echo ""
-            echo "**This replaces the Capacitor guard app on the same listing.** Rolling"
+            echo "**This replaces the Capacitor app on the same listing.** Rolling"
             echo "it out to production swaps the WebView shell for the native app on"
-            echo "every guard's phone at their next update. A staged rollout, or the"
+            echo "every user's phone at their next update. A staged rollout, or the"
             echo "internal testing track first, is the cautious route."
             echo ""
             echo '```'
@@ -313,7 +356,7 @@ jobs:
       - name: Upload the AAB
         uses: actions/upload-artifact@v4
         with:
-          name: managesociety-guard-native-${{ steps.v.outputs.name }}-vc${{ steps.v.outputs.code }}
-          path: ${{ env.APP_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
+          name: managesociety-${{ inputs.app }}-native-${{ steps.v.outputs.name }}-vc${{ steps.v.outputs.code }}
+          path: ${{ steps.app.outputs.dir }}/android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 30
