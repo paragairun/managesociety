@@ -92,17 +92,30 @@ comment on table public.maintenance_flat_charges is
 
 -- One recurring amount and one amount per month, per flat per head.
 --
--- Two indexes rather than one unique constraint because Postgres counts
--- NULLs as distinct in a unique constraint, so a single
--- unique (head_id, flat_id, for_period) would happily store the same
--- flat's parking charge twice and bill it twice.
-create unique index if not exists flat_charges_recurring_uniq
-  on public.maintenance_flat_charges (head_id, flat_id)
-  where for_period is null;
+-- Enforced over a generated column rather than directly over
+-- for_period, because Postgres counts NULLs as distinct in a unique
+-- index: a plain unique (head_id, flat_id, for_period) would happily
+-- store the same flat's parking charge twice and bill it twice.
+-- Folding NULL to '' closes that, and '' can never collide with a real
+-- period because for_period is constrained to YYYY-MM above.
+--
+-- The obvious alternative — two PARTIAL indexes, one for each case —
+-- enforces the same rule but cannot serve as an ON CONFLICT arbiter
+-- unless the statement repeats the WHERE predicate, which PostgREST
+-- cannot express. That shipped first and broke every upsert from the
+-- admin screen; see per_flat_charges_upsert_fix.sql, which migrates a
+-- database that already ran that version.
+alter table public.maintenance_flat_charges
+  add column if not exists period_key text
+    generated always as (coalesce(for_period, '')) stored;
 
-create unique index if not exists flat_charges_period_uniq
-  on public.maintenance_flat_charges (head_id, flat_id, for_period)
-  where for_period is not null;
+comment on column public.maintenance_flat_charges.period_key is
+  'for_period with NULL folded to the empty string, so one ordinary '
+  'unique index covers both the recurring and the one-off case and can '
+  'serve as an ON CONFLICT arbiter. Generated; never written directly.';
+
+create unique index if not exists flat_charges_uniq
+  on public.maintenance_flat_charges (head_id, flat_id, period_key);
 
 -- The lookup a bill run makes: everything for this society, for this
 -- month plus the recurring ones.
@@ -164,8 +177,8 @@ begin
   then missing := missing || ' maintenance_flat_charges'; end if;
 
   if not exists (select 1 from pg_indexes
-                 where indexname = 'flat_charges_recurring_uniq')
-  then missing := missing || ' flat_charges_recurring_uniq'; end if;
+                 where indexname = 'flat_charges_uniq')
+  then missing := missing || ' flat_charges_uniq'; end if;
 
   if missing <> '' then
     raise exception 'Did not apply:%', missing;

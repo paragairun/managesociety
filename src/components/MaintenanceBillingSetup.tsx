@@ -372,12 +372,16 @@ const MaintenanceBillingSetup = () => {
       amount,
       for_period: period || null,
     }));
-    // onConflict matches the two partial unique indexes: re-applying a
-    // charge to the same flats corrects the amount rather than billing
-    // it twice.
+    // The arbiter names period_key, not for_period: a unique index over
+    // a nullable column cannot catch two recurring rows, because
+    // Postgres counts NULLs as distinct, and the partial indexes that
+    // would catch it cannot be named by an upsert at all. period_key
+    // folds NULL to '' so one ordinary index does both, which is what
+    // makes re-applying a charge correct the amount rather than bill it
+    // twice. See supabase/schema/per_flat_charges_upsert_fix.sql.
     const { error } = await flatChargeDb
       .from("maintenance_flat_charges")
-      .upsert(rows, { onConflict: "head_id,flat_id,for_period" });
+      .upsert(rows, { onConflict: "head_id,flat_id,period_key" });
     setApplyingCharge(false);
     if (error) {
       toast({ title: "Could not apply the charge", description: error.message, variant: "destructive" });
@@ -720,9 +724,20 @@ const MaintenanceBillingSetup = () => {
               </div>
 
               {/* Per-flat amount. The reason the checkboxes exist:
-                  "these forty flats keep a car at ₹200". */}
+                  "these forty flats keep a car at ₹200".
+
+                  Headed, and separated from the group below, because
+                  two bulk actions stacked in one panel read as one
+                  action in two steps — an admin reasonably concluded
+                  they had to set a unit type before a charge would
+                  apply. They are independent: either can be used
+                  alone, on the same selection. */}
               {perFlatHeads.length > 0 && (
-                <div className="grid gap-2 md:grid-cols-5 items-center">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Charge these flats
+                  </p>
+                  <div className="grid gap-2 md:grid-cols-5 items-center">
                   <Select
                     value={bulkCharge.headId}
                     onValueChange={(v) => setBulkCharge((b) => ({ ...b, headId: v }))}
@@ -768,7 +783,8 @@ const MaintenanceBillingSetup = () => {
                       Remove
                     </Button>
                   </div>
-                  <p className="md:col-span-5 text-xs text-muted-foreground">
+                  </div>
+                  <p className="text-xs text-muted-foreground">
                     Leave the month blank for a charge that recurs every month — parking.
                     Enter a month like <strong>2026-11</strong> for something billed once —
                     a fine, a penalty, a hall booking. Applying again to the same flats
@@ -777,10 +793,17 @@ const MaintenanceBillingSetup = () => {
                 </div>
               )}
 
-              {/* The bulk unit assignment that would otherwise have been
-                  a one-off script run against the database. */}
+              {/* A SEPARATE action on the same selection, not a second
+                  step of the one above. Mostly for the exceptions the
+                  floor plan cannot know about — a shop, a penthouse —
+                  and for wings entered as a plain flat range, which
+                  have no repeating floor to plan. */}
               {unitTypes.length > 0 && (
-                <div className="grid gap-2 md:grid-cols-5 items-center border-t border-border pt-3">
+                <div className="space-y-2 border-t border-border pt-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Or change the flats themselves
+                  </p>
+                  <div className="grid gap-2 md:grid-cols-5 items-center">
                   <Select value={bulkUnitKey} onValueChange={setBulkUnitKey}>
                     <SelectTrigger className="touch-target md:col-span-3">
                       <SelectValue placeholder="Set unit type and size on all selected" />
@@ -808,6 +831,7 @@ const MaintenanceBillingSetup = () => {
                   >
                     <Trash2 className="h-4 w-4" /> Remove flats
                   </Button>
+                  </div>
                 </div>
               )}
             </div>
