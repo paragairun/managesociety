@@ -9,7 +9,29 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import SocietyStructureBuilder from "@/components/SocietyStructureBuilder";
+import UnitTypesBuilder from "@/components/UnitTypesBuilder";
 import { TowerStructure, emptyTower, normalizeStructure } from "@/lib/societyStructure";
+import {
+  normalizeUnitTypes, isBlankUnitDrafts, emptyUnitType,
+  type UnitType, type UnitTypeDraft,
+} from "@/lib/societyUnits";
+
+/**
+ * society_registration_requests.unit_types is newer than the generated
+ * types.ts, so inserting it narrows the row type to `never`. Cast the
+ * CLIENT rather than the payload, as evDb.ts and SocietySetup.tsx do:
+ * every other field keeps its real type, and regenerating types.ts
+ * deletes this and nothing else.
+ *
+ * The column is defined in
+ * supabase/schema/registration_unit_types.sql.
+ */
+const regDb = supabase as unknown as {
+  from: (table: string) => {
+    insert: (row: Record<string, unknown>) =>
+      Promise<{ error: { message: string } | null }>;
+  };
+};
 
 const SocietyRegister = () => {
   const navigate = useNavigate();
@@ -37,6 +59,7 @@ const SocietyRegister = () => {
   const [towers, setTowers] = useState<TowerStructure[]>([emptyTower()]);
   const [floorWise, setFloorWise] = useState(false);
   const [flatsPerFloor, setFlatsPerFloor] = useState("");
+  const [unitDrafts, setUnitDrafts] = useState<UnitTypeDraft[]>([emptyUnitType()]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,8 +101,27 @@ const SocietyRegister = () => {
     }
     const normalizedTowers = structureResult.structure;
 
+    /**
+     * The unit catalogue is optional here and required nowhere until
+     * the first bill run. A committee registering from the society
+     * office rarely has the sq ft figures to hand, and refusing the
+     * registration over it would cost a society to gain a field.
+     *
+     * But a HALF-filled catalogue is a mistake rather than an
+     * abstention, so anything typed is held to the full rules.
+     */
+    let unitTypes: UnitType[] = [];
+    if (!isBlankUnitDrafts(unitDrafts)) {
+      const unitResult = normalizeUnitTypes(unitDrafts);
+      if ("error" in unitResult) {
+        toast({ title: unitResult.error, variant: "destructive" });
+        return;
+      }
+      unitTypes = unitResult.unitTypes;
+    }
+
     setSaving(true);
-    const { error } = await supabase.from("society_registration_requests").insert({
+    const { error } = await regDb.from("society_registration_requests").insert({
       society_name: form.society_name.trim(),
       address_line: form.address_line.trim(),
       landmark: form.landmark.trim() || null,
@@ -88,6 +130,7 @@ const SocietyRegister = () => {
       country: form.country.trim(),
       pin_code: form.pin_code.trim(),
       society_structure: normalizedTowers as unknown as Json,
+      unit_types: unitTypes as unknown as Json,
       admin_display_name: form.admin_display_name.trim(),
       admin_email: email,
       admin_phone: form.admin_phone.trim() || null,
@@ -190,6 +233,33 @@ const SocietyRegister = () => {
                   onChangeFloorWise={setFloorWise}
                   onChangeFlatsPerFloor={setFlatsPerFloor}
                   disabled={saving}
+                />
+              </section>
+
+              <section className="space-y-3 pt-2 border-t border-border">
+                <div>
+                  <h3 className="font-semibold text-foreground">
+                    Unit types and sizes{" "}
+                    <span className="font-normal text-muted-foreground">(optional)</span>
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    The kinds of flat your society has, and the sizes each one comes in — a
+                    3BHK might exist at 1000, 1050 and 1100 sq ft, so list each. Maintenance
+                    charges can then be set per unit type or per square foot instead of being
+                    worked out flat by flat.
+                    <strong className="block mt-1">
+                      Skip this if you don't have the areas to hand — your admin can add it
+                      later from Society Setup. Unlike the structure above, it can be changed
+                      at any time.
+                    </strong>
+                  </p>
+                </div>
+
+                <UnitTypesBuilder
+                  drafts={unitDrafts}
+                  onChange={setUnitDrafts}
+                  disabled={saving}
+                  idPrefix="register-unit"
                 />
               </section>
 

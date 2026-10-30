@@ -146,3 +146,27 @@ export function allSizes(unitTypes: UnitType[]): number[] {
   for (const t of unitTypes) for (const s of t.sizes) set.add(s.sqft);
   return [...set].sort((a, b) => a - b);
 }
+
+/**
+ * True when the editor has been left as it was handed over.
+ *
+ * The unit catalogue is required where billing depends on it (the admin
+ * panel) and optional where it does not (the public registration form).
+ * A committee filling in a signup form at the gate office will not have
+ * the sq ft figures to hand, and refusing the registration over it
+ * would turn a nice-to-have into a lost society — they can complete it
+ * from Society Setup before the first bill run, which is the only
+ * moment it actually matters.
+ *
+ * "Blank" means every name and every size is empty. One typed character
+ * anywhere makes the catalogue intentional, and normalizeUnitTypes then
+ * holds it to the full rules — because a half-filled catalogue is a
+ * mistake, not an abstention, and silently discarding it would lose
+ * work the committee thinks it has saved.
+ */
+export function isBlankUnitDrafts(drafts: UnitTypeDraft[]): boolean {
+  return drafts.every(
+    (d) => d.name.trim() === ""
+      && d.sizes.every((s) => s.sqft.trim() === "" && s.label.trim() === ""),
+  );
+}

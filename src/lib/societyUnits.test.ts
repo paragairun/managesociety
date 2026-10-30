@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   normalizeUnitTypes, toUnitTypeDrafts, sizesFor, sizeLabel, unitLabel,
-  isKnownUnit, allSizes, emptyUnitType,
+  isKnownUnit, allSizes, emptyUnitType, isBlankUnitDrafts,
   type UnitType, type UnitTypeDraft,
 } from "./societyUnits";
 
@@ -150,5 +150,46 @@ describe("checking a flat's unit is one the society has", () => {
     expect(isKnownUnit(catalogue, "3BHK", null)).toBe(false);
     expect(isKnownUnit(catalogue, null, 1050)).toBe(false);
     expect(isKnownUnit(catalogue, "", 0)).toBe(false);
+  });
+});
+
+describe("isBlankUnitDrafts", () => {
+  it("treats a freshly opened editor as blank", () => {
+    expect(isBlankUnitDrafts([emptyUnitType()])).toBe(true);
+  });
+
+  it("treats several untouched rows as blank", () => {
+    expect(isBlankUnitDrafts([emptyUnitType(), emptyUnitType()])).toBe(true);
+  });
+
+  it("treats whitespace as blank", () => {
+    expect(isBlankUnitDrafts([{ name: "  ", sizes: [{ sqft: " ", label: "\t" }] }])).toBe(true);
+  });
+
+  it("is not blank once a name is typed", () => {
+    expect(isBlankUnitDrafts([{ name: "2BHK", sizes: [{ sqft: "", label: "" }] }])).toBe(false);
+  });
+
+  it("is not blank once a size is typed, even with no name", () => {
+    expect(isBlankUnitDrafts([{ name: "", sizes: [{ sqft: "950", label: "" }] }])).toBe(false);
+  });
+
+  it("is not blank when only a label is typed", () => {
+    // A stray label is a half-filled catalogue, which normalizeUnitTypes
+    // must then reject — rather than being silently dropped as an
+    // abstention, losing work the committee thinks it has saved.
+    expect(isBlankUnitDrafts([{ name: "", sizes: [{ sqft: "", label: "corner" }] }])).toBe(false);
+  });
+
+  it("is not blank when a later row is filled in", () => {
+    expect(isBlankUnitDrafts([
+      emptyUnitType(),
+      { name: "3BHK", sizes: [{ sqft: "1100", label: "" }] },
+    ])).toBe(false);
+  });
+
+  it("a blank editor would otherwise be an error, which is why this exists", () => {
+    const result = normalizeUnitTypes([emptyUnitType()]);
+    expect("error" in result).toBe(true);
   });
 });

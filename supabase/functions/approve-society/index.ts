@@ -93,10 +93,18 @@ Deno.serve(async (req) => {
 
     // Persist the submitted structure (towers/wings/flat ranges) as locked, super-admin-only editable
     // Non-blocking — if the table doesn't exist yet (pending migration), approval still succeeds
+    //
+    // unit_types rides along in the same row. It is validated at both
+    // ends — normalizeUnitTypes before submission, a trigger on insert
+    // — so this copies it verbatim rather than reshaping it. Dropping
+    // it here would be the worst kind of bug: the committee fills in
+    // the catalogue at registration, sees it accepted, and finds it
+    // gone the first time they open Society Setup.
     try {
       const { error: structErr } = await adminClient.from("society_structure").insert({
         society_id: society.id,
         structure: reqRow.society_structure ?? [],
+        unit_types: reqRow.unit_types ?? [],
         locked: true,
       });
       if (structErr) console.error("society_structure insert failed:", structErr.message);

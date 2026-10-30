@@ -13,6 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import StatusBadge from "@/components/StatusBadge";
 import SocietyStructureBuilder from "@/components/SocietyStructureBuilder";
+import UnitTypesBuilder from "@/components/UnitTypesBuilder";
+import {
+  normalizeUnitTypes, toUnitTypeDrafts, isBlankUnitDrafts, emptyUnitType,
+  type UnitType, type UnitTypeDraft,
+} from "@/lib/societyUnits";
 import {
   TowerStructure, emptyTower, normalizeStructure, toEditableState, NormalizedStructure,
 } from "@/lib/societyStructure";
@@ -38,7 +43,33 @@ interface RegRow {
   admin_email: string; admin_display_name: string; admin_phone: string | null;
   status: string; rejection_reason: string | null; created_at: string;
   society_structure: TowerRange[] | null;
+  /** Optional at registration; see supabase/schema/registration_unit_types.sql. */
+  unit_types: UnitType[] | null;
 }
+
+/**
+ * society_structure.unit_types is newer than the generated types.ts,
+ * so selecting or upserting it narrows the row to an error type. Cast
+ * the CLIENT rather than each row, as evDb.ts and SocietySetup.tsx do;
+ * regenerating types.ts deletes this and nothing else.
+ *
+ * The column is defined in
+ * supabase/schema/society_units_and_gate_mode.sql.
+ */
+const structureDb = supabase as unknown as {
+  from: (table: string) => {
+    select: (cols: string) => {
+      eq: (col: string, val: string) => {
+        maybeSingle: () => Promise<{
+          data: Record<string, unknown> | null;
+          error: { message: string } | null;
+        }>;
+      };
+    };
+    upsert: (row: Record<string, unknown>, opts: { onConflict: string }) =>
+      Promise<{ error: { message: string } | null }>;
+  };
+};
 
 const SuperAdminDashboard = () => {
   const { toast } = useToast();
@@ -59,6 +90,7 @@ const SuperAdminDashboard = () => {
   const [editingFlatsPerFloor, setEditingFlatsPerFloor] = useState("");
   const [structureLoading, setStructureLoading] = useState(false);
   const [structureSaving, setStructureSaving] = useState(false);
+  const [editingUnits, setEditingUnits] = useState<UnitTypeDraft[]>([emptyUnitType()]);
 
 
   const load = useCallback(async () => {
@@ -136,10 +168,11 @@ const SuperAdminDashboard = () => {
     setEditingTowers([emptyTower()]);
     setEditingFloorWise(false);
     setEditingFlatsPerFloor("");
+    setEditingUnits([emptyUnitType()]);
     setStructureLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await structureDb
       .from("society_structure")
-      .select("structure")
+      .select("structure, unit_types")
       .eq("society_id", society.id)
       .maybeSingle();
     setStructureLoading(false);
@@ -152,6 +185,7 @@ const SuperAdminDashboard = () => {
     setEditingTowers(towers);
     setEditingFloorWise(floorWise);
     setEditingFlatsPerFloor(flatsPerFloor);
+    setEditingUnits(toUnitTypeDrafts((data?.unit_types ?? []) as UnitType[]));
   };
 
   const saveStructure = async () => {
@@ -161,10 +195,32 @@ const SuperAdminDashboard = () => {
       toast({ title: result.error, variant: "destructive" });
       return;
     }
+    /**
+     * Optional here for the same reason as on the registration form:
+     * the platform team editing a society's towers should not be
+     * blocked on sq ft figures only the committee has. Blank means
+     * "leave the catalogue empty"; anything typed is held to the
+     * full rules, because a half-filled catalogue is a mistake.
+     */
+    let unitTypes: UnitType[] = [];
+    if (!isBlankUnitDrafts(editingUnits)) {
+      const unitResult = normalizeUnitTypes(editingUnits);
+      if ("error" in unitResult) {
+        toast({ title: unitResult.error, variant: "destructive" });
+        return;
+      }
+      unitTypes = unitResult.unitTypes;
+    }
+
     setStructureSaving(true);
-    const { error } = await supabase
+    const { error } = await structureDb
       .from("society_structure")
-      .upsert({ society_id: editingSociety.id, structure: result.structure as unknown as Json, locked: true }, { onConflict: "society_id" });
+      .upsert({
+        society_id: editingSociety.id,
+        structure: result.structure as unknown as Json,
+        unit_types: unitTypes as unknown as Json,
+        locked: true,
+      }, { onConflict: "society_id" });
     setStructureSaving(false);
     if (error) {
       toast({ title: "Could not save structure", description: error.message, variant: "destructive" });
@@ -250,6 +306,22 @@ const SuperAdminDashboard = () => {
                             </li>
                           ))}
                         </ul>
+                      </div>
+                    )}
+
+                    {/* Shown before approval because this is the one
+                        chance to notice a catalogue that reads wrong —
+                        a 3BHK at 300 sq ft, say — while it can still be
+                        queried with the committee rather than silently
+                        becoming the basis of their bills. */}
+                    {r.unit_types && r.unit_types.length > 0 && (
+                      <div className="mt-2 text-sm">
+                        <span className="font-semibold text-foreground">Unit types:</span>{" "}
+                        <span className="text-muted-foreground">
+                          {r.unit_types.map((t) =>
+                            `${t.name} (${t.sizes.map((z) => `${z.sqft}`).join(", ")} sq ft)`,
+                          ).join(" \u00b7 ")}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -357,9 +429,9 @@ const SuperAdminDashboard = () => {
       <Dialog open={!!editingSociety} onOpenChange={(o) => !o && setEditingSociety(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit structure — {editingSociety?.name}</DialogTitle>
+            <DialogTitle>Edit structure &amp; units — {editingSociety?.name}</DialogTitle>
             <DialogDescription>
-              Towers, wings and flat number ranges for this society. Only the platform team can edit this once a society is approved.
+              Towers, wings and flat number ranges for this society. Only the platform team can edit these once a society is approved — the unit catalogue below is not locked.
             </DialogDescription>
           </DialogHeader>
           {structureLoading ? (
@@ -377,6 +449,30 @@ const SuperAdminDashboard = () => {
               disabled={structureSaving}
             />
           )}
+
+          {structureLoading ? null : (
+            <div className="space-y-2 pt-2 border-t border-border">
+              <div>
+                <h4 className="font-semibold text-foreground text-sm">
+                  Unit types and sizes{" "}
+                  <span className="font-normal text-muted-foreground">(optional)</span>
+                </h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  What kinds of flat this society has, and the sizes each comes in.
+                  Maintenance charges can be set per unit type or per square foot once
+                  this exists. The society's own admin can also edit it from Society
+                  Setup — unlike the structure above, it is not locked.
+                </p>
+              </div>
+              <UnitTypesBuilder
+                drafts={editingUnits}
+                onChange={setEditingUnits}
+                disabled={structureSaving}
+                idPrefix="super-unit"
+              />
+            </div>
+          )}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingSociety(null)} disabled={structureSaving}>Cancel</Button>
             <Button onClick={() => void saveStructure()} disabled={structureSaving || structureLoading}>

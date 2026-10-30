@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Trash2, Building2, ScanLine, Radio } from "lucide-react";
+import { Building2, ScanLine, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import UnitTypesBuilder from "@/components/UnitTypesBuilder";
 import {
-  normalizeUnitTypes, toUnitTypeDrafts, emptyUnitType, emptyUnitSize,
+  normalizeUnitTypes, toUnitTypeDrafts, emptyUnitType,
   type UnitType, type UnitTypeDraft,
 } from "@/lib/societyUnits";
 import {
@@ -129,22 +128,6 @@ const SocietySetup = () => {
     });
   };
 
-  // ── unit draft editing ────────────────────────────────────────────
-  const addType = () => setDrafts((d) => [...d, emptyUnitType()]);
-  const removeType = (ti: number) => setDrafts((d) => d.filter((_, i) => i !== ti));
-  const setTypeName = (ti: number, name: string) =>
-    setDrafts((d) => d.map((t, i) => (i === ti ? { ...t, name } : t)));
-  const addSize = (ti: number) =>
-    setDrafts((d) => d.map((t, i) => (i === ti ? { ...t, sizes: [...t.sizes, emptyUnitSize()] } : t)));
-  const removeSize = (ti: number, si: number) =>
-    setDrafts((d) => d.map((t, i) => (
-      i === ti ? { ...t, sizes: t.sizes.filter((_, j) => j !== si) } : t)));
-  const setSize = (ti: number, si: number, field: "sqft" | "label", value: string) =>
-    setDrafts((d) => d.map((t, i) => (
-      i === ti
-        ? { ...t, sizes: t.sizes.map((s, j) => (j === si ? { ...s, [field]: value } : s)) }
-        : t)));
-
   if (loading) {
     return <p className="text-muted-foreground py-8 text-center">Loading society setup…</p>;
   }
@@ -168,73 +151,16 @@ const SocietySetup = () => {
             list rather than having a size typed in by hand.
           </p>
 
-          {drafts.map((type, ti) => (
-            <div key={ti} className="rounded-lg border border-border bg-secondary/20 p-3 space-y-3">
-              <div className="flex items-end gap-2">
-                <div className="flex-1 space-y-1">
-                  <Label htmlFor={`unit-name-${ti}`}>Unit type</Label>
-                  <Input
-                    id={`unit-name-${ti}`}
-                    value={type.name}
-                    onChange={(e) => setTypeName(ti, e.target.value)}
-                    placeholder="3BHK"
-                  />
-                </div>
-                <Button
-                  variant="ghost" size="icon"
-                  onClick={() => removeType(ti)}
-                  disabled={drafts.length === 1}
-                  aria-label={`Remove ${type.name || "this unit type"}`}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive-ink" />
-                </Button>
-              </div>
+          <UnitTypesBuilder
+            drafts={drafts}
+            onChange={setDrafts}
+            disabled={savingUnits}
+            idPrefix="setup-unit"
+          />
 
-              <div className="space-y-2">
-                <Label>Sizes</Label>
-                {type.sizes.map((size, si) => (
-                  <div key={si} className="flex items-center gap-2">
-                    <Input
-                      value={size.sqft}
-                      onChange={(e) => setSize(ti, si, "sqft", e.target.value)}
-                      placeholder="1050"
-                      inputMode="numeric"
-                      className="w-32"
-                      aria-label="Area in square feet"
-                    />
-                    <span className="text-sm text-muted-foreground">sq ft</span>
-                    <Input
-                      value={size.label}
-                      onChange={(e) => setSize(ti, si, "label", e.target.value)}
-                      placeholder="label (optional) — e.g. corner"
-                      className="flex-1"
-                      aria-label="Optional label for this size"
-                    />
-                    <Button
-                      variant="ghost" size="icon"
-                      onClick={() => removeSize(ti, si)}
-                      disabled={type.sizes.length === 1}
-                      aria-label="Remove this size"
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive-ink" />
-                    </Button>
-                  </div>
-                ))}
-                <Button variant="outline" size="sm" onClick={() => addSize(ti)} className="gap-1">
-                  <Plus className="h-3 w-3" /> Add a size
-                </Button>
-              </div>
-            </div>
-          ))}
-
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={addType} className="gap-1">
-              <Plus className="h-4 w-4" /> Add a unit type
-            </Button>
-            <Button onClick={() => void saveUnits()} disabled={savingUnits}>
-              {savingUnits ? "Saving…" : "Save unit types"}
-            </Button>
-          </div>
+          <Button onClick={() => void saveUnits()} disabled={savingUnits}>
+            {savingUnits ? "Saving…" : "Save unit types"}
+          </Button>
 
           {saved.length > 0 && (
             <p className="text-xs text-muted-foreground">
