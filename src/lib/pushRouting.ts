@@ -30,12 +30,13 @@ export const PUSH_VIEWS: Record<PushRole, readonly string[]> = {
   // src/pages/ResidentPortal.tsx — PRIMARY_NAV plus CHILD_NAV
   resident: ["home", "guest", "deliveries", "dues", "amenities", "vehicles", "ev", "helps", "profile"],
   // src/pages/GuardDashboard.tsx
-  guard: ["home", "scan", "approvals", "live", "barriers", "delivery"],
+  guard: ["home", "visitor", "scan", "approvals", "live", "barriers", "delivery"],
   // src/pages/AdminPanel.tsx — NAV, plus the two sections reachable
   // only from the Home tiles ("guards", "device-pins").
   admin: [
     "home", "stats", "vehicle-management", "users", "staff",
-    "amenity-management", "accounts-maintenance", "ev-charging", "profile",
+    "amenity-management", "accounts-maintenance", "society-setup",
+    "ev-charging", "profile",
     "guards", "device-pins",
   ],
 } as const;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, QrCode, Car, BarChart3, Trash2, ChevronDown, ChevronUp, Link as LinkIcon, Users, ClipboardList, Upload, UserPlus, ClipboardCheck, FileSpreadsheet, Activity, TrendingUp, Check, ChevronsUpDown, Search, Radio, Download, User, Wallet, Home, Sparkles, Calendar, Zap } from "lucide-react";
+import { Plus, QrCode, Car, BarChart3, Trash2, ChevronDown, ChevronUp, Link as LinkIcon, Users, ClipboardList, Upload, UserPlus, ClipboardCheck, FileSpreadsheet, Activity, TrendingUp, Check, ChevronsUpDown, Search, Radio, Download, User, Wallet, Home, Sparkles, Calendar, Zap, Building2 } from "lucide-react";
 import RegistrationRequests from "@/components/RegistrationRequests";
 import BarrierDevicesAdmin from "@/components/BarrierDevicesAdmin";
 import CsvUpload from "@/components/CsvUpload";
@@ -32,6 +32,7 @@ import SocietyStaffManager from "@/components/SocietyStaffManager";
 import StaffAttendanceLog from "@/components/StaffAttendanceLog";
 import AdminProfile from "@/components/AdminProfile";
 import MaintenanceBillingSetup from "@/components/MaintenanceBillingSetup";
+import SocietySetup from "@/components/SocietySetup";
 import AmenitiesSetup from "@/components/AmenitiesSetup";
 import AmenityBookingsAdmin from "@/components/AmenityBookingsAdmin";
 import AdminHome from "@/components/AdminHome";
@@ -67,6 +68,7 @@ const NAV: (NavItem & { requires?: Capability })[] = [
   { id: "staff", title: "Staff & House Helps", icon: Users, requires: "staff.manage" },
   { id: "amenity-management", title: "Amenity Management", icon: Sparkles, requires: "amenities.manage" },
   { id: "accounts-maintenance", title: "Accounts and Maintenance", icon: Wallet, requires: "billing.manage" },
+  { id: "society-setup", title: "Society Setup", icon: Building2, requires: "society.settings" },
   { id: "ev-charging", title: "EV Charging", icon: Zap, requires: "ev.manage" },
   { id: "profile", title: "My Profile", icon: User },
 ];
@@ -660,6 +662,7 @@ const AdminPanel = () => {
         </>
       )}
       {activeView === "accounts-maintenance" && <MaintenanceBillingSetup />}
+      {activeView === "society-setup" && <SocietySetup />}
       {activeView === "ev-charging" && <EvChargingAdmin />}
 
       {activeView === "profile" && <AdminProfile />}

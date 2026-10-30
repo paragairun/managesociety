@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ScanLine, Check, X, LogOut, Car, Search, ClipboardList, Radio, Package, Home, Fingerprint } from "lucide-react";
+import { ScanLine, Check, X, LogOut, Car, Search, ClipboardList, Radio, Package, Home, Fingerprint, UserPlus } from "lucide-react";
 import VehicleSearch from "@/components/VehicleSearch";
 import GateActivity from "@/components/GateActivity";
 import GuardHome from "@/components/GuardHome";
@@ -19,20 +19,32 @@ import { approveVisitor, rejectVisitor, checkOutEntry, flowFailed, flowWarning }
 import { makeVisitorFlowPorts } from "@/lib/visitorFlowPorts";
 import DashboardShell, { NavItem } from "@/components/DashboardShell";
 import DeliveryManager from "@/components/DeliveryManager";
+import GuardVisitorOptions from "@/components/GuardVisitorOptions";
+import { useGateEntryMode } from "@/hooks/useGateEntryMode";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useBackToHome } from "@/hooks/useBackToHome";
 
 type VisitorRequest = Tables<"visitor_requests">;
 type EntryLog = Tables<"entry_logs">;
 
-const NAV: NavItem[] = [
+const NAV_BASE: NavItem[] = [
   { id: "home", title: "Home", icon: Home },
+  { id: "visitor", title: "Visitor at the Gate", icon: UserPlus },
   { id: "scan", title: "Search & Scan", icon: Search },
   { id: "approvals", title: "Pending Approvals", icon: ClipboardList },
   { id: "live", title: "Live Inside", icon: Car },
   { id: "barriers", title: "Boom Barriers", icon: Radio },
   { id: "delivery", title: "Deliveries", icon: Package },
 ];
+
+/**
+ * A society on RFID boom barriers never scans anything, so the Scan
+ * entry is withheld rather than shown and failing. GuardVisitorOptions
+ * withholds its scan button on the same condition, both from
+ * @/lib/visitorForm.
+ */
+const navFor = (mode: "qr_sticker" | "rfid"): NavItem[] =>
+  NAV_BASE.filter((item) => !(item.id === "scan" && mode === "rfid"));
 
 const GuardDashboard = () => {
   const [activeView, setActiveView] = useState("home");
@@ -48,6 +60,7 @@ const GuardDashboard = () => {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const { toast } = useToast();
   const { signOut, user, societyId, societyName, societySlug } = useAuth();
+  const gateEntryMode = useGateEntryMode(societyId);
   const navigate = useNavigate();
 
   // Registers this device for push inside the iOS or Android shell; a
@@ -337,7 +350,7 @@ const GuardDashboard = () => {
       brandTitle="Guard Dashboard"
       brandSubtitle={societyName ?? "Your Society"}
       groupLabel="Operations"
-      items={NAV}
+      items={navFor(gateEntryMode)}
       activeId={activeView}
       onSelect={setActiveView}
       onSignOut={handleSignOut}
@@ -348,8 +361,14 @@ const GuardDashboard = () => {
           pendingApprovals={pendingVisitors.length}
           liveInside={liveVehicles.length}
           onNavigate={setActiveView}
-          onStartScan={() => setScanning(true)}
           onRegisterDelivery={() => { setDeliveryFormTrigger((t) => t + 1); setActiveView("delivery"); }}
+          gateEntryMode={gateEntryMode}
+        />
+      )}
+      {activeView === "visitor" && (
+        <GuardVisitorOptions
+          gateEntryMode={gateEntryMode}
+          onScan={() => setScanning(true)}
         />
       )}
       {activeView === "scan" && renderScan()}

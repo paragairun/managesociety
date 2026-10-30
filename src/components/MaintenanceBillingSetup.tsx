@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { describeCharge } from "@/lib/billCalculation";
+import { sizeLabel, unitLabel, isKnownUnit, type UnitType } from "@/lib/societyUnits";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -22,8 +24,25 @@ const BILLING_FREQUENCIES = [
   { value: 12, label: "Annual" },
 ];
 
-const emptyChargeHeadForm = () => ({ name: "", calculation_type: "per_sqft" as "per_sqft" | "fixed", rate: "" });
-const emptyFlatForm = () => ({ wing: "", flat_number: "", area_sqft: "", flat_type: "" });
+type Calc = "per_sqft" | "fixed" | "per_unit_type";
+
+const emptyChargeHeadForm = () => ({
+  name: "",
+  calculation_type: "per_unit_type" as Calc,
+  rate: "",
+  /** Rate per unit type name, as typed. Only used by per_unit_type. */
+  unitRates: {} as Record<string, string>,
+});
+/** unitKey is "<type name>|<sqft>" — one control for a pair that is not independent. */
+const emptyFlatForm = () => ({ wing: "", flat_number: "", unitKey: "" });
+
+/** Split a unitKey back into its parts. */
+const splitUnitKey = (key: string): { flat_type: string; area_sqft: number } | null => {
+  const [name, sqft] = key.split("|");
+  const area = Number(sqft);
+  if (!name || !Number.isFinite(area) || area <= 0) return null;
+  return { flat_type: name, area_sqft: area };
+};
 
 const MaintenanceBillingSetup = () => {
   const { societyId } = useAuth();
@@ -35,6 +54,14 @@ const MaintenanceBillingSetup = () => {
   const [chargeHeads, setChargeHeads] = useState<ChargeHead[]>([]);
   const [chargeHeadForm, setChargeHeadForm] = useState(emptyChargeHeadForm());
   const [savingChargeHead, setSavingChargeHead] = useState(false);
+  /**
+   * The society's unit types, for the per-unit-type rate grid.
+   *
+   * Read through a cast: society_structure.unit_types is newer than the
+   * generated types.ts. Defined in
+   * supabase/schema/society_units_and_gate_mode.sql.
+   */
+  const [unitTypes, setUnitTypes] = useState<UnitType[]>([]);
 
   const [flats, setFlats] = useState<Flat[]>([]);
   const [flatForm, setFlatForm] = useState(emptyFlatForm());
@@ -46,14 +73,25 @@ const MaintenanceBillingSetup = () => {
   const loadAll = useCallback(async () => {
     if (!societyId) return;
     setLoading(true);
-    const [{ data: settingsData }, { data: chargeHeadsData }, { data: flatsData }] = await Promise.all([
-      supabase.from("society_billing_settings").select("*").eq("society_id", societyId).maybeSingle(),
-      supabase.from("maintenance_charge_heads").select("*").eq("society_id", societyId).order("name"),
-      supabase.from("flats").select("*").eq("society_id", societyId).order("wing").order("flat_number"),
-    ]);
+    // society_structure.unit_types is newer than the generated
+    // types.ts, so that one query goes through a cast client.
+    const structureDb = supabase as unknown as {
+      from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => {
+        maybeSingle: () => Promise<{ data: { unit_types?: UnitType[] } | null }> } } };
+    };
+
+    const [{ data: settingsData }, { data: chargeHeadsData }, { data: flatsData }, structureRes] =
+      await Promise.all([
+        supabase.from("society_billing_settings").select("*").eq("society_id", societyId).maybeSingle(),
+        supabase.from("maintenance_charge_heads").select("*").eq("society_id", societyId).order("name"),
+        supabase.from("flats").select("*").eq("society_id", societyId).order("wing").order("flat_number"),
+        structureDb.from("society_structure").select("unit_types")
+          .eq("society_id", societyId).maybeSingle(),
+      ]);
     setSettings(settingsData ?? null);
     setChargeHeads(chargeHeadsData ?? []);
     setFlats(flatsData ?? []);
+    setUnitTypes(structureRes.data?.unit_types ?? []);
     setLoading(false);
   }, [societyId]);
 
@@ -85,17 +123,48 @@ const MaintenanceBillingSetup = () => {
   // ─── Charge heads ────────────────────────────────────────────────────
   const addChargeHead = async () => {
     if (!societyId) return;
-    if (!chargeHeadForm.name.trim() || !chargeHeadForm.rate) {
-      toast({ title: "Name and rate are required", variant: "destructive" });
+    if (!chargeHeadForm.name.trim()) {
+      toast({ title: "Give the charge head a name", variant: "destructive" });
+      return;
+    }
+    if (chargeHeadForm.calculation_type === "per_unit_type") {
+      const anyRate = Object.values(chargeHeadForm.unitRates)
+        .some((v) => v.trim() !== "" && Number.isFinite(Number(v)));
+      if (!anyRate) {
+        toast({
+          title: "Set a rate for at least one unit type",
+          description: unitTypes.length === 0
+            ? "Define your unit types first, under Society Setup."
+            : "A unit type left blank is simply not charged for this head.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else if (!chargeHeadForm.rate) {
+      toast({ title: "Enter a rate", variant: "destructive" });
       return;
     }
     setSavingChargeHead(true);
+
+    // per_unit_type keeps its rates in a map and leaves `rate` at zero;
+    // the other two use `rate` and leave the map null. Writing both
+    // would leave two sources of truth for one number.
+    const perUnit = chargeHeadForm.calculation_type === "per_unit_type";
+    const unitRates = perUnit
+      ? Object.fromEntries(
+          Object.entries(chargeHeadForm.unitRates)
+            .filter(([, v]) => v.trim() !== "" && Number.isFinite(Number(v)))
+            .map(([k, v]) => [k, Number(v)]),
+        )
+      : null;
+
     const { error } = await supabase.from("maintenance_charge_heads").insert({
       society_id: societyId,
       name: chargeHeadForm.name.trim(),
       calculation_type: chargeHeadForm.calculation_type,
-      rate: Number(chargeHeadForm.rate),
-    });
+      rate: perUnit ? 0 : Number(chargeHeadForm.rate),
+      ...(perUnit ? { unit_rates: unitRates } : {}),
+    } as never);
     setSavingChargeHead(false);
     if (error) { toast({ title: "Could not add charge head", description: error.message, variant: "destructive" }); return; }
     setChargeHeadForm(emptyChargeHeadForm());
@@ -119,7 +188,7 @@ const MaintenanceBillingSetup = () => {
   // ─── Flats registry ──────────────────────────────────────────────────
   const addFlat = async () => {
     if (!societyId) return;
-    if (!flatForm.wing.trim() || !flatForm.flat_number.trim() || !flatForm.area_sqft) {
+    if (!flatForm.wing.trim() || !flatForm.flat_number.trim() || !flatForm.unitKey) {
       toast({ title: "Wing, flat number, and area are required", variant: "destructive" });
       return;
     }
@@ -128,8 +197,7 @@ const MaintenanceBillingSetup = () => {
       society_id: societyId,
       wing: flatForm.wing.trim().toUpperCase(),
       flat_number: flatForm.flat_number.trim(),
-      area_sqft: Number(flatForm.area_sqft),
-      flat_type: flatForm.flat_type.trim() || null,
+      ...(splitUnitKey(flatForm.unitKey) ?? { area_sqft: 0, flat_type: null }),
     });
     setSavingFlat(false);
     if (error) { toast({ title: "Could not add flat", description: error.message, variant: "destructive" }); return; }
@@ -138,11 +206,29 @@ const MaintenanceBillingSetup = () => {
     await loadAll();
   };
 
-  const updateFlatArea = async (flat: Flat, area_sqft: string) => {
-    const n = Number(area_sqft);
-    if (!area_sqft || Number.isNaN(n)) return;
-    const { error } = await supabase.from("flats").update({ area_sqft: n }).eq("id", flat.id);
-    if (error) { toast({ title: "Could not update area", description: error.message, variant: "destructive" }); return; }
+  /**
+   * Change a flat's unit, type and size together.
+   *
+   * Together, because they are not independent: a 3BHK in this society
+   * is 1000, 1050 or 1100 sq ft. Editing the area alone — which is what
+   * this screen used to allow — is how a flat ends up at a size the
+   * catalogue does not have, falling out of every per-unit charge.
+   */
+  const updateFlatUnit = async (flat: Flat, unitKey: string) => {
+    const unit = splitUnitKey(unitKey);
+    if (!unit) return;
+    if (!isKnownUnit(unitTypes, unit.flat_type, unit.area_sqft)) {
+      toast({
+        title: "That is not a unit your society has",
+        description: "Add it under Society Setup first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const { error } = await supabase.from("flats")
+      .update({ flat_type: unit.flat_type, area_sqft: unit.area_sqft })
+      .eq("id", flat.id);
+    if (error) { toast({ title: "Could not update the flat", description: error.message, variant: "destructive" }); return; }
     await loadAll();
   };
 
@@ -241,16 +327,63 @@ const MaintenanceBillingSetup = () => {
         <CardContent className="space-y-4">
           <div className="grid gap-3 md:grid-cols-4">
             <Input placeholder="e.g. Maintenance" value={chargeHeadForm.name} onChange={(e) => setChargeHeadForm((p) => ({ ...p, name: e.target.value }))} className="touch-target" />
-            <Select value={chargeHeadForm.calculation_type} onValueChange={(v: "per_sqft" | "fixed") => setChargeHeadForm((p) => ({ ...p, calculation_type: v }))}>
+            <Select value={chargeHeadForm.calculation_type} onValueChange={(v: Calc) => setChargeHeadForm((p) => ({ ...p, calculation_type: v }))}>
               <SelectTrigger className="touch-target"><SelectValue /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="per_unit_type">Per unit type</SelectItem>
                 <SelectItem value="per_sqft">Per sq.ft.</SelectItem>
                 <SelectItem value="fixed">Fixed amount</SelectItem>
               </SelectContent>
             </Select>
-            <Input type="number" placeholder={chargeHeadForm.calculation_type === "per_sqft" ? "Rate per sq.ft." : "Fixed amount"} value={chargeHeadForm.rate} onChange={(e) => setChargeHeadForm((p) => ({ ...p, rate: e.target.value }))} className="touch-target" />
+            {chargeHeadForm.calculation_type === "per_unit_type" ? (
+              <div className="md:col-span-1 flex items-center text-sm text-muted-foreground">
+                Rates per unit type, below
+              </div>
+            ) : (
+              <Input type="number" placeholder={chargeHeadForm.calculation_type === "per_sqft" ? "Rate per sq.ft." : "Fixed amount"} value={chargeHeadForm.rate} onChange={(e) => setChargeHeadForm((p) => ({ ...p, rate: e.target.value }))} className="touch-target" />
+            )}
             <Button onClick={() => void addChargeHead()} disabled={savingChargeHead} className="touch-target gap-2"><Plus className="h-4 w-4" /> Add</Button>
           </div>
+
+          {/* One rate per unit type. This is how most societies actually
+              bill for lifts, security and common electricity: the cost
+              follows the size of household rather than the floor area.
+              A unit type left blank is deliberately NOT charged — a lift
+              charge may genuinely not apply to a ground-floor shop. */}
+          {chargeHeadForm.calculation_type === "per_unit_type" && (
+            <div className="rounded-lg border border-border bg-secondary/20 p-3 space-y-2">
+              {unitTypes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No unit types defined yet. Add them under <strong>Society Setup</strong>,
+                  then charges can be set per 1BHK, 2BHK and so on.
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Leave a unit type blank to exclude it from this charge.
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                    {unitTypes.map((ut) => (
+                      <div key={ut.name} className="flex items-center gap-2">
+                        <span className="w-20 text-sm font-medium">{ut.name}</span>
+                        <Input
+                          type="number"
+                          placeholder="₹"
+                          value={chargeHeadForm.unitRates[ut.name] ?? ""}
+                          onChange={(e) => setChargeHeadForm((p) => ({
+                            ...p,
+                            unitRates: { ...p.unitRates, [ut.name]: e.target.value },
+                          }))}
+                          className="touch-target"
+                          aria-label={`Rate for ${ut.name}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <div className="space-y-2">
             {chargeHeads.length === 0 && <p className="text-sm text-muted-foreground">No charge heads yet. Add "Maintenance" to get started.</p>}
             {chargeHeads.map((ch) => (
@@ -258,7 +391,12 @@ const MaintenanceBillingSetup = () => {
                 <div>
                   <span className="font-medium">{ch.name}</span>
                   <span className="text-sm text-muted-foreground ml-2">
-                    {ch.calculation_type === "per_sqft" ? `₹${ch.rate}/sq.ft.` : `₹${ch.rate} fixed`}
+                    {describeCharge({
+                      id: ch.id, name: ch.name,
+                      calculation_type: ch.calculation_type as Calc,
+                      rate: ch.rate,
+                      unit_rates: (ch as { unit_rates?: Record<string, number> | null }).unit_rates,
+                    })}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -285,8 +423,32 @@ const MaintenanceBillingSetup = () => {
           <div className="grid gap-3 md:grid-cols-5">
             <Input placeholder="Wing" value={flatForm.wing} onChange={(e) => setFlatForm((p) => ({ ...p, wing: e.target.value }))} className="touch-target" />
             <Input placeholder="Flat No." value={flatForm.flat_number} onChange={(e) => setFlatForm((p) => ({ ...p, flat_number: e.target.value }))} className="touch-target" />
-            <Input type="number" placeholder="Area (sq.ft.)" value={flatForm.area_sqft} onChange={(e) => setFlatForm((p) => ({ ...p, area_sqft: e.target.value }))} className="touch-target" />
-            <Input placeholder="Type (e.g. 2BHK)" value={flatForm.flat_type} onChange={(e) => setFlatForm((p) => ({ ...p, flat_type: e.target.value }))} className="touch-target" />
+            {/* One control, not two. The unit type and its size are not
+                independent — a 3BHK in this society is 1000, 1050 or
+                1100 and nothing else — and typing them separately is
+                how a flat ends up at 3BHK/1075, matching no charge
+                head and nobody noticing until the bills are short. */}
+            {unitTypes.length === 0 ? (
+              <div className="md:col-span-2 flex items-center text-sm text-muted-foreground">
+                Define your unit types under <strong className="mx-1">Society Setup</strong> first.
+              </div>
+            ) : (
+              <Select
+                value={flatForm.unitKey}
+                onValueChange={(v) => setFlatForm((p) => ({ ...p, unitKey: v }))}
+              >
+                <SelectTrigger className="touch-target md:col-span-2">
+                  <SelectValue placeholder="Unit type and size" />
+                </SelectTrigger>
+                <SelectContent>
+                  {unitTypes.flatMap((t) => t.sizes.map((sz) => (
+                    <SelectItem key={`${t.name}|${sz.sqft}`} value={`${t.name}|${sz.sqft}`}>
+                      {t.name} — {sizeLabel(sz)}
+                    </SelectItem>
+                  )))}
+                </SelectContent>
+              </Select>
+            )}
             <Button onClick={() => void addFlat()} disabled={savingFlat} className="touch-target gap-2"><Plus className="h-4 w-4" /> Add</Button>
           </div>
           <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -294,14 +456,32 @@ const MaintenanceBillingSetup = () => {
             {flats.map((f) => (
               <div key={f.id} className="flex items-center justify-between p-2 rounded-md bg-secondary/50 border border-border gap-2">
                 <span className="font-medium w-24">{f.wing}-{f.flat_number}</span>
-                <span className="text-sm text-muted-foreground w-20">{f.flat_type ?? "—"}</span>
-                <Input
-                  type="number"
-                  defaultValue={f.area_sqft}
-                  className="touch-target w-32"
-                  onBlur={(e) => void updateFlatArea(f, e.target.value)}
-                />
-                <span className="text-sm text-muted-foreground">sq.ft.</span>
+                {unitTypes.length === 0 ? (
+                  <span className="text-sm text-muted-foreground">
+                    {unitLabel(f.flat_type, f.area_sqft) || "no unit set"}
+                  </span>
+                ) : (
+                  <Select
+                    value={f.flat_type && f.area_sqft ? `${f.flat_type}|${f.area_sqft}` : ""}
+                    onValueChange={(v) => void updateFlatUnit(f, v)}
+                  >
+                    <SelectTrigger className="touch-target w-64">
+                      <SelectValue placeholder="Set unit type and size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unitTypes.flatMap((t) => t.sizes.map((sz) => (
+                        <SelectItem key={`${t.name}|${sz.sqft}`} value={`${t.name}|${sz.sqft}`}>
+                          {t.name} — {sizeLabel(sz)}
+                        </SelectItem>
+                      )))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {/* A flat with no unit falls out of every per-unit and
+                    per-sqft charge. Said here, where it can be fixed. */}
+                {!isKnownUnit(unitTypes, f.flat_type, f.area_sqft) && unitTypes.length > 0 && (
+                  <span className="text-xs text-warning-ink">not billed by unit</span>
+                )}
                 <div className="flex-1" />
                 <Button variant="ghost" size="sm" onClick={() => void deleteFlat(f.id)} className="text-destructive-ink hover:text-destructive-ink">
                   <Trash2 className="h-4 w-4" />

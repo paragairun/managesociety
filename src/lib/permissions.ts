@@ -50,6 +50,12 @@ export type Capability =
   | "billing.manage"
   | "accesslogs.view"
   | "stats.view"
+  // The society's own shape: its unit types and sizes, and how vehicles
+  // get through the gate. Separate from billing.manage because getting
+  // it wrong is worse than getting a rate wrong — the unit catalogue is
+  // what every per-unit charge is computed against, and the gate mode
+  // decides what a guard's app even shows.
+  | "society.settings"
   // EV charging
   | "ev.manage"
   | "ev.settings";
@@ -61,6 +67,7 @@ const ADMIN: Capability[] = [
   "staff.manage", "attendance.view", "guards.manage",
   "vehicles.manage", "barriers.manage", "amenities.manage",
   "billing.manage", "accesslogs.view", "stats.view",
+  "society.settings",
   "ev.manage", "ev.settings",
 ];
 

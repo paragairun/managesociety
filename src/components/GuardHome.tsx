@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  ScanLine, Search, ClipboardList, Car, Radio, Package,
+  Search, ClipboardList, Car, Radio, Package, UserPlus,
   Sparkles, ArrowRight, LogIn, LogOut,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,19 +17,30 @@ interface GuardHomeProps {
   pendingApprovals: number;
   liveInside: number;
   onNavigate: (view: string) => void;
-  onStartScan: () => void;
   onRegisterDelivery: () => void;
+  /** Societies on RFID barriers never scan, so the Scan tile is hidden. */
+  gateEntryMode: "qr_sticker" | "rfid";
 }
 
+/**
+ * The two things that happen at a gate, side by side and equal.
+ *
+ * Almost everyone arriving is either a visitor or a delivery, and which
+ * one is obvious to the guard before they look at the screen — so
+ * neither should be the default and neither should be below the fold.
+ */
+
 const TILES = [
-  { id: "scan", title: "Search & Scan", icon: Search, tint: "bg-primary/10 text-primary-ink" },
-  { id: "approvals", title: "Pending Approvals", icon: ClipboardList, tint: "bg-warning/10 text-warning-ink" },
-  { id: "live", title: "Live Inside", icon: Car, tint: "bg-success/10 text-success-ink" },
-  { id: "barriers", title: "Boom Barriers", icon: Radio, tint: "bg-accent/10 text-accent-ink" },
-  { id: "delivery", title: "Deliveries", icon: Package, tint: "bg-success/10 text-success-ink" },
+  // scanOnly: withheld on a society using RFID boom barriers, where
+  // nothing is scanned and a dead tile is worse than a missing one.
+  { id: "scan", title: "Search & Scan", icon: Search, tint: "bg-primary/10 text-primary-ink", scanOnly: true },
+  { id: "approvals", title: "Pending Approvals", icon: ClipboardList, tint: "bg-warning/10 text-warning-ink", scanOnly: false },
+  { id: "live", title: "Live Inside", icon: Car, tint: "bg-success/10 text-success-ink", scanOnly: false },
+  { id: "barriers", title: "Boom Barriers", icon: Radio, tint: "bg-accent/10 text-accent-ink", scanOnly: false },
+  { id: "delivery", title: "Deliveries", icon: Package, tint: "bg-success/10 text-success-ink", scanOnly: false },
 ];
 
-const GuardHome = ({ societyName, pendingApprovals, liveInside, onNavigate, onStartScan, onRegisterDelivery }: GuardHomeProps) => {
+const GuardHome = ({ societyName, pendingApprovals, liveInside, onNavigate, onRegisterDelivery, gateEntryMode }: GuardHomeProps) => {
   const { societyId } = useAuth();
   const { toast } = useToast();
   const [recentEntries, setRecentEntries] = useState<EntryLog[]>([]);
@@ -56,31 +67,31 @@ const GuardHome = ({ societyName, pendingApprovals, liveInside, onNavigate, onSt
         </p>
       </div>
 
-      {/* Scan CTA -- the guard's #1 action, kept front and center */}
-      <Card className="border-primary/30 bg-gradient-to-br from-primary/10 to-transparent">
-        <CardContent className="p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">Scan a vehicle, staff or guest QR</p>
-            <p className="text-base font-semibold text-foreground">Tap to start scanning</p>
-          </div>
-          <Button size="lg" onClick={onStartScan} className="gap-2 text-base font-bold">
-            <ScanLine className="h-5 w-5" /> Scan QR
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => onNavigate("visitor")}
+          className="rounded-xl border-2 border-primary bg-primary/10 p-5 text-center
+                     flex flex-col items-center justify-center gap-1 min-h-[132px]
+                     transition hover:bg-primary/20"
+        >
+          <UserPlus className="h-8 w-8 text-primary-ink" />
+          <span className="text-lg font-extrabold text-foreground">Visitor</span>
+          <span className="text-xs text-muted-foreground">Scan a pass or register one</span>
+        </button>
 
-      {/* Register Delivery -- second-most-used action for a guard, one tap to the form */}
-      <Card className="border-success/30 bg-gradient-to-br from-success/10 to-transparent">
-        <CardContent className="p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">Delivery agent at the gate?</p>
-            <p className="text-base font-semibold text-foreground">Register a delivery</p>
-          </div>
-          <Button size="lg" variant="outline" onClick={onRegisterDelivery} className="gap-2 text-base font-bold border-success/50 text-success-ink hover:bg-success hover:text-success-foreground">
-            <Package className="h-5 w-5" /> Register Delivery
-          </Button>
-        </CardContent>
-      </Card>
+        <button
+          type="button"
+          onClick={onRegisterDelivery}
+          className="rounded-xl border-2 border-success bg-success/10 p-5 text-center
+                     flex flex-col items-center justify-center gap-1 min-h-[132px]
+                     transition hover:bg-success/20"
+        >
+          <Package className="h-8 w-8 text-success-ink" />
+          <span className="text-lg font-extrabold text-foreground">Delivery</span>
+          <span className="text-xs text-muted-foreground">Register an agent</span>
+        </button>
+      </div>
 
       {/* Hero stats */}
       <div className="grid grid-cols-2 gap-3">
@@ -105,7 +116,7 @@ const GuardHome = ({ societyName, pendingApprovals, liveInside, onNavigate, onSt
       <div>
         <h3 className="text-sm font-medium text-muted-foreground mb-2">Quick actions</h3>
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-          {TILES.map((tile) => {
+          {TILES.filter((t) => !(t.scanOnly && gateEntryMode === "rfid")).map((tile) => {
             const Icon = tile.icon;
             const badge = tile.id === "approvals" && pendingApprovals > 0 ? pendingApprovals : null;
             return (
