@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { evDb } from "@/lib/evDb";
+import { evDb } from "@/integrations/supabase/evClient";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   VEHICLE_LABEL, STATUS_LABEL, formatKwh, formatRupees,

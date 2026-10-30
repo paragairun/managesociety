@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   RESIDENT_SECTIONS, sectionsFor, canOpenSection, can, whyNot,
   type ResidentIdentity, type ResidentAction,
@@ -128,5 +130,25 @@ describe("explaining a refusal", () => {
   it("names the login type when removing the account", () => {
     expect(whyNot(tenant, "deleteAccount")).toContain("tenant");
     expect(whyNot(family, "deleteAccount")).toContain("family");
+  });
+});
+
+describe("the native app covers every section", () => {
+  it("has a screen for each id, with no placeholder left behind", () => {
+    // RESIDENT_SECTIONS is the single list the drawer, the home grid and
+    // the notification router are all built from. A section with no
+    // screen does not fail anywhere — it quietly renders "Not built
+    // yet" forever, which is exactly the kind of thing that ships.
+    const app = readFileSync(
+      resolve(process.cwd(), "native/resident/App.tsx"),
+      "utf8",
+    );
+
+    const missing = RESIDENT_SECTIONS
+      .map((s) => s.id)
+      .filter((id) => id !== "home")            // Home is wired separately
+      .filter((id) => !new RegExp(`\\b${id}:\\s*\\(\\)`).test(app));
+
+    expect(missing, `sections with no screen: ${missing.join(", ")}`).toEqual([]);
   });
 });

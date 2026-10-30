@@ -1,5 +1,5 @@
 import "react-native-gesture-handler";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, type ReactElement } from "react";
 import { ActivityIndicator, AppState, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -17,6 +17,12 @@ import LoginScreen from "@/screens/LoginScreen";
 import HomeScreen from "@/screens/HomeScreen";
 import DeliveriesScreen from "@/screens/DeliveriesScreen";
 import GuestPassScreen from "@/screens/GuestPassScreen";
+import DuesScreen from "@/screens/DuesScreen";
+import AmenitiesScreen from "@/screens/AmenitiesScreen";
+import VehiclesScreen from "@/screens/VehiclesScreen";
+import EvChargingScreen from "@/screens/EvChargingScreen";
+import HouseHelpsScreen from "@/screens/HouseHelpsScreen";
+import ProfileScreen from "@/screens/ProfileScreen";
 import { colors, type } from "@/theme";
 
 /**
@@ -60,6 +66,28 @@ const useAuthRefreshOnForeground = () => {
       void supabase.auth.stopAutoRefresh();
     };
   }, []);
+};
+
+/**
+ * Every section's screen, keyed by the id @core/residentAccess uses.
+ *
+ * A map rather than a chain of ternaries, so a section that exists in
+ * the shared list but has no screen here is a missing key with a
+ * visible placeholder, not a silently wrong branch — and
+ * residentAccess.test.ts reads this map to check none is missing.
+ */
+// ReactElement imported explicitly: the global JSX namespace comes
+// from the website's React types, which exist beside this app on a
+// full checkout and not in CI.
+const SCREENS: Record<string, () => ReactElement> = {
+  guest: () => <GuestPassScreen />,
+  deliveries: () => <DeliveriesScreen />,
+  dues: () => <DuesScreen />,
+  amenities: () => <AmenitiesScreen />,
+  vehicles: () => <VehiclesScreen />,
+  ev: () => <EvChargingScreen />,
+  helps: () => <HouseHelpsScreen />,
+  profile: () => <ProfileScreen />,
 };
 
 const Placeholder = ({ name }: { name: string }) => (
@@ -116,9 +144,7 @@ const Shell = () => {
         const route = section.id.charAt(0).toUpperCase() + section.id.slice(1);
         return (
           <Drawer.Screen key={section.id} name={route} options={{ title: section.title }}>
-            {section.id === "deliveries" ? () => <DeliveriesScreen />
-              : section.id === "guest" ? () => <GuestPassScreen />
-              : () => <Placeholder name={section.title} />}
+            {SCREENS[section.id] ?? (() => <Placeholder name={section.title} />)}
           </Drawer.Screen>
         );
       })}

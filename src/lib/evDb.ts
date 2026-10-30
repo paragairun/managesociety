@@ -1,5 +1,3 @@
-import { supabase } from "@/integrations/supabase/client";
-
 /**
  * A typed door onto the ev_* tables.
  *
@@ -13,6 +11,12 @@ import { supabase } from "@/integrations/supabase/client";
  * component. The shape below is deliberately narrow — it describes
  * only the calls this module's callers actually make, so a typo in a
  * method name is still caught.
+ *
+ * It takes the client as an ARGUMENT rather than importing one. The
+ * native resident app shares this file through @core and has its own
+ * differently configured client (AsyncStorage rather than
+ * localStorage); importing the website's would also be a runtime import
+ * out of src/lib, which Metro cannot follow.
  *
  * REMOVE THIS once types.ts is regenerated:
  *   npx supabase gen types typescript --project-id <id> > src/integrations/supabase/types.ts
@@ -48,7 +52,9 @@ export interface EvClient {
     | "ev_settings" | "ev_chargers" | "ev_chargers_public"
     | "ev_sessions" | "ev_credit_entries" | "ev_bank_messages"): Table;
   rpc<T = unknown>(fn: string, args?: Row): Promise<Result<T>>;
-  auth: typeof supabase.auth;
 }
 
-export const evDb = supabase as unknown as EvClient;
+/** Views any Supabase client as one that knows the ev_* tables. */
+export function makeEvDb(client: unknown): EvClient {
+  return client as EvClient;
+}

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { evDb } from "@/lib/evDb";
+import { evDb } from "@/integrations/supabase/evClient";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   VEHICLE_LABEL, STATUS_LABEL, splitWithCredit, validateAmount, validateUtr,
