@@ -87,8 +87,20 @@ const GATE_EVENTS = new Set([
 const GATE_CHANNEL_ID = "managesociety-gate";
 const DEFAULT_CHANNEL_ID = "managesociety-default";
 
+/**
+ * The custom gate tone. Android wants the res/raw resource name with no
+ * extension; iOS wants the bundled filename with one. One file, two
+ * spellings — a trap worth naming rather than rediscovering.
+ */
+const GATE_SOUND_ANDROID = "gate_alert";
+const GATE_SOUND_IOS = "gate_alert.wav";
+
+function isGateEvent(eventKey: string | null | undefined): boolean {
+  return !!eventKey && GATE_EVENTS.has(eventKey);
+}
+
 function channelForEvent(eventKey: string | null | undefined): string {
-  return eventKey && GATE_EVENTS.has(eventKey) ? GATE_CHANNEL_ID : DEFAULT_CHANNEL_ID;
+  return isGateEvent(eventKey) ? GATE_CHANNEL_ID : DEFAULT_CHANNEL_ID;
 }
 
 interface OutboxRow {
@@ -377,12 +389,20 @@ Deno.serve(async (req) => {
                   // src/lib/pushRouting.ts (channelForEvent) so both
                   // sides cannot disagree about the id.
                   channel_id: channelForEvent(row.event_key),
-                  sound: "default",
+                  // Android 8+ takes the sound from the CHANNEL, so this
+                  // matters only on older devices — but a silent gate
+                  // alert on an old phone is exactly the failure this
+                  // whole feature exists to prevent.
+                  sound: isGateEvent(row.event_key) ? GATE_SOUND_ANDROID : "default",
                 },
               },
               apns: {
                 headers: { "apns-priority": "10" },
-                payload: { aps: { sound: "default" } },
+                payload: {
+                  aps: {
+                    sound: isGateEvent(row.event_key) ? GATE_SOUND_IOS : "default",
+                  },
+                },
               },
             },
           }),

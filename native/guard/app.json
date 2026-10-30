@@ -42,7 +42,14 @@
           "recordAudioAndroid": false
         }
       ],
-      "expo-notifications"
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/sounds/gate_alert.wav"
+          ]
+        }
+      ]
     ]
   }
 }

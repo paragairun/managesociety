@@ -159,6 +159,47 @@ const GATE_EVENTS = new Set([
 ]);
 
 /**
+ * The alert tone for someone waiting at a gate.
+ *
+ * A custom sound rather than the device default, because the default is
+ * also every message, email and app update the resident gets. This one
+ * is a short ascending three-note bell, synthesised for the app — the
+ * file lives at native/<app>/assets/sounds/gate_alert.wav and the
+ * expo-notifications config plugin copies it into res/raw on Android
+ * and into the bundle on iOS.
+ *
+ * Android wants the resource name WITHOUT an extension in an FCM
+ * payload; iOS wants the filename WITH one. Hence two constants for
+ * one file, which is a trap worth naming rather than rediscovering.
+ *
+ * NOTE: a channel's sound is fixed when the channel is first created.
+ * Changing this string later will not reach a phone that already has
+ * the app — that needs a new channel id.
+ */
+export const GATE_SOUND = {
+  /** For setNotificationChannelAsync and APNs. */
+  file: "gate_alert.wav",
+  /** For FCM's android.notification.sound. */
+  android: "gate_alert",
+} as const;
+
+/**
+ * The sound an event should play, by platform.
+ *
+ * Ordinary notices keep the device default: a bill arriving does not
+ * deserve a distinct tone, and a resident who hears the gate sound
+ * should know what it means without looking.
+ */
+export function soundForEvent(eventKey: string | null | undefined): {
+  android: string;
+  ios: string;
+} {
+  return channelForEvent(eventKey) === GATE_CHANNEL.id
+    ? { android: GATE_SOUND.android, ios: GATE_SOUND.file }
+    : { android: "default", ios: "default" };
+}
+
+/**
  * Which Android channel an event belongs in.
  *
  * Shared by the apps, which create the channels, and by

@@ -31,7 +31,14 @@
       "supportsTablet": true
     },
     "plugins": [
-      "expo-notifications"
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/sounds/gate_alert.wav"
+          ]
+        }
+      ]
     ]
   }
 }

@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import { supabase } from "@/lib/supabase";
-import { resolvePushTarget, PUSH_CHANNEL, GATE_CHANNEL } from "@core/pushRouting";
+import { resolvePushTarget, PUSH_CHANNEL, GATE_CHANNEL, GATE_SOUND } from "@core/pushRouting";
 
 /**
  * Push registration and the delivery alert.
@@ -56,7 +56,11 @@ async function ensureChannels() {
     // single buzz of an ordinary notice.
     vibrationPattern: [0, 400, 200, 400, 200, 400],
     enableVibrate: true,
-    sound: "default",
+    // Our own tone, not the device default — which is also every
+    // message, email and app update the resident gets. A short
+    // ascending bell, so "someone is at your gate" is recognisable
+    // without looking at the phone.
+    sound: GATE_SOUND.file,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     bypassDnd: false,
   });

@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   resolvePushTarget, isPushRole, PUSH_VIEWS,
-  PUSH_CHANNEL, GATE_CHANNEL, channelForEvent,
+  PUSH_CHANNEL, GATE_CHANNEL, channelForEvent, soundForEvent, GATE_SOUND,
 } from "./pushRouting";
 
 // vitest runs from the project root, so resolve from there rather than
@@ -182,5 +182,65 @@ describe("choosing a notification channel", () => {
     // inherit whichever settings were registered first.
     expect(GATE_CHANNEL.id).not.toBe(PUSH_CHANNEL.id);
     expect(GATE_CHANNEL.importance).toBeGreaterThan(PUSH_CHANNEL.importance);
+  });
+});
+
+describe("the gate alert tone", () => {
+  it("plays the custom tone only for someone actually waiting", () => {
+    expect(soundForEvent("delivery.at_gate")).toEqual({
+      android: GATE_SOUND.android, ios: GATE_SOUND.file,
+    });
+    expect(soundForEvent("visitor.at_gate").android).toBe(GATE_SOUND.android);
+    // A bill does not get a distinct tone: a resident who hears the gate
+    // sound should know what it means without looking.
+    expect(soundForEvent("bill.issued")).toEqual({ android: "default", ios: "default" });
+    expect(soundForEvent("delivery.reviewed")).toEqual({ android: "default", ios: "default" });
+    expect(soundForEvent(null)).toEqual({ android: "default", ios: "default" });
+  });
+
+  it("spells the file the way each platform needs", () => {
+    // Android wants the res/raw resource name with NO extension; iOS
+    // wants the bundled filename WITH one. Getting this backwards gives
+    // a silent notification on one platform and no error anywhere.
+    expect(GATE_SOUND.android).toBe("gate_alert");
+    expect(GATE_SOUND.file).toBe("gate_alert.wav");
+    expect(GATE_SOUND.file.startsWith(GATE_SOUND.android)).toBe(true);
+  });
+
+  it("uses an Android-legal resource name", () => {
+    // res/raw names must be lowercase a-z, 0-9 and underscore, and may
+    // not start with a digit. The config plugin asserts this at prebuild
+    // time, which is a 15-minute build away from here.
+    expect(GATE_SOUND.android).toMatch(/^[a-z][a-z0-9_]*$/);
+  });
+
+  it("ships the sound file in both apps", () => {
+    // A channel naming a sound that is not in res/raw falls back to
+    // silence. Nothing would report it: not the build, not the device.
+    for (const app of ["resident", "guard"]) {
+      const file = join(process.cwd(), "native", app, "assets", "sounds", GATE_SOUND.file);
+      expect(existsSync(file), `missing ${file}`).toBe(true);
+
+      // A RIFF/WAVE header, not merely a file of the right name.
+      const head = readFileSync(file).subarray(0, 12);
+      expect(head.subarray(0, 4).toString("ascii")).toBe("RIFF");
+      expect(head.subarray(8, 12).toString("ascii")).toBe("WAVE");
+    }
+  });
+
+  it("registers the sound with the config plugin in both apps", () => {
+    // Without this entry the file never reaches res/raw, however
+    // correctly the channel names it.
+    for (const app of ["resident", "guard"]) {
+      const cfg = readFileSync(join(process.cwd(), "native", app, "app.json"), "utf8");
+      expect(cfg).toContain("expo-notifications");
+      expect(cfg).toContain(`assets/sounds/${GATE_SOUND.file}`);
+    }
+  });
+
+  it("agrees with the edge function about both spellings", () => {
+    const fn = read("supabase", "functions", "send-push-notification", "index.ts");
+    expect(fn).toContain(`"${GATE_SOUND.android}"`);
+    expect(fn).toContain(`"${GATE_SOUND.file}"`);
   });
 });
