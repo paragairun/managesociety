@@ -16,6 +16,7 @@ import { sectionsFor } from "@core/residentAccess";
 import LoginScreen from "@/screens/LoginScreen";
 import HomeScreen from "@/screens/HomeScreen";
 import DeliveriesScreen from "@/screens/DeliveriesScreen";
+import GuestPassScreen from "@/screens/GuestPassScreen";
 import { colors, type } from "@/theme";
 
 /**
@@ -115,8 +116,8 @@ const Shell = () => {
         const route = section.id.charAt(0).toUpperCase() + section.id.slice(1);
         return (
           <Drawer.Screen key={section.id} name={route} options={{ title: section.title }}>
-            {section.id === "deliveries"
-              ? () => <DeliveriesScreen />
+            {section.id === "deliveries" ? () => <DeliveriesScreen />
+              : section.id === "guest" ? () => <GuestPassScreen />
               : () => <Placeholder name={section.title} />}
           </Drawer.Screen>
         );
