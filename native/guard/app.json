@@ -38,7 +38,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Scanning QR codes and photographing delivery agents at the gate."
+          "cameraPermission": "Scanning QR codes and photographing delivery agents at the gate.",
+          "recordAudioAndroid": false
         }
       ],
       "expo-notifications"
