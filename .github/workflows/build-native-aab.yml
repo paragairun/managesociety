@@ -310,6 +310,13 @@ jobs:
       - name: Inspect the finished bundle
         working-directory: ${{ steps.app.outputs.dir }}/android
         env:
+          # APP_ID belongs here, not only on the identity step further up.
+          # Steps do not inherit each other's env, and this script runs
+          # under `set -u`, so leaving it out aborted the step with
+          # "APP_ID: unbound variable" — after a perfectly good signed
+          # bundle had already been produced. It failed for either app,
+          # every time, because nothing had run the workflow to its end.
+          APP_ID: ${{ steps.app.outputs.id }}
           VERSION_CODE: ${{ steps.v.outputs.code }}
           VERSION_NAME: ${{ steps.v.outputs.name }}
         run: |
@@ -332,10 +339,10 @@ jobs:
           {
             echo "## ${APP} native — ${VERSION_NAME} (versionCode ${VERSION_CODE})"
             echo ""
-            echo "Bundle: ${SIZE_MB} MB · package ${APP_ID} · signed with the GUARD release key."
+            echo "Bundle: ${SIZE_MB} MB · package ${APP_ID} · signed with the ${APP} release key."
             echo ""
             echo "Download \`app-release.aab\` from **Artifacts** below and upload it in"
-            echo "Play Console. Play splits it per device, so what a guard actually"
+            echo "Play Console. Play splits it per device, so what someone actually"
             echo "downloads is smaller than this."
             echo ""
             echo "**This replaces the Capacitor app on the same listing.** Rolling"

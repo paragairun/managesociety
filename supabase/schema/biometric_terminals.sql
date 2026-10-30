@@ -119,29 +119,29 @@ drop policy if exists "devices: admins manage own society" on public.biometric_d
 create policy "devices: admins manage own society"
   on public.biometric_devices for all to authenticated
   using (society_id in (select p.society_id from public.profiles p
-          where p.id = auth.uid() and public.has_role(auth.uid(), 'admin')))
+          where p.user_id = auth.uid() and public.has_role(auth.uid(), 'admin')))
   with check (society_id in (select p.society_id from public.profiles p
-          where p.id = auth.uid() and public.has_role(auth.uid(), 'admin')));
+          where p.user_id = auth.uid() and public.has_role(auth.uid(), 'admin')));
 
 drop policy if exists "devices: guards read own society" on public.biometric_devices;
 create policy "devices: guards read own society"
   on public.biometric_devices for select to authenticated
   using (society_id in (select p.society_id from public.profiles p
-          where p.id = auth.uid() and public.has_role(auth.uid(), 'guard')));
+          where p.user_id = auth.uid() and public.has_role(auth.uid(), 'guard')));
 
 drop policy if exists "device map: admins manage own society" on public.device_user_map;
 create policy "device map: admins manage own society"
   on public.device_user_map for all to authenticated
   using (society_id in (select p.society_id from public.profiles p
-          where p.id = auth.uid() and public.has_role(auth.uid(), 'admin')))
+          where p.user_id = auth.uid() and public.has_role(auth.uid(), 'admin')))
   with check (society_id in (select p.society_id from public.profiles p
-          where p.id = auth.uid() and public.has_role(auth.uid(), 'admin')));
+          where p.user_id = auth.uid() and public.has_role(auth.uid(), 'admin')));
 
 drop policy if exists "punches: society staff read" on public.device_punches;
 create policy "punches: society staff read"
   on public.device_punches for select to authenticated
   using (society_id in (select p.society_id from public.profiles p
-          where p.id = auth.uid()
+          where p.user_id = auth.uid()
             and (public.has_role(auth.uid(), 'admin') or public.has_role(auth.uid(), 'guard'))));
 
 -- ─────────────────────────────────────────────

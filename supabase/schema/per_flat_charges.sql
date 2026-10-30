@@ -144,11 +144,11 @@ drop policy if exists "flat charges: admins manage own society" on public.mainte
 create policy "flat charges: admins manage own society"
   on public.maintenance_flat_charges for all to authenticated
   using (society_id in (select p.society_id from public.profiles p
-          where p.id = auth.uid()
+          where p.user_id = auth.uid()
             and (public.has_role(auth.uid(), 'admin')
               or public.has_role(auth.uid(), 'manager'))))
   with check (society_id in (select p.society_id from public.profiles p
-          where p.id = auth.uid()
+          where p.user_id = auth.uid()
             and (public.has_role(auth.uid(), 'admin')
               or public.has_role(auth.uid(), 'manager'))));
 
@@ -157,7 +157,7 @@ create policy "flat charges: residents read own flat"
   on public.maintenance_flat_charges for select to authenticated
   using (flat_id in (select f.id from public.flats f
           join public.profiles p on p.society_id = f.society_id
-          where p.id = auth.uid()
+          where p.user_id = auth.uid()
             and f.wing = p.wing
             and f.flat_number = p.flat_number));
 

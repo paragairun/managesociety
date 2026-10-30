@@ -195,13 +195,13 @@ create policy "fingerprints: society admins manage"
   using (
     society_id in (
       select p.society_id from public.profiles p
-       where p.id = auth.uid() and public.has_role(auth.uid(), 'admin')
+       where p.user_id = auth.uid() and public.has_role(auth.uid(), 'admin')
     )
   )
   with check (
     society_id in (
       select p.society_id from public.profiles p
-       where p.id = auth.uid() and public.has_role(auth.uid(), 'admin')
+       where p.user_id = auth.uid() and public.has_role(auth.uid(), 'admin')
     )
   );
 
@@ -214,7 +214,7 @@ create policy "fingerprints: guards read own society"
   using (
     society_id in (
       select p.society_id from public.profiles p
-       where p.id = auth.uid() and public.has_role(auth.uid(), 'guard')
+       where p.user_id = auth.uid() and public.has_role(auth.uid(), 'guard')
     )
   );
 
