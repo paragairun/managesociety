@@ -68,6 +68,15 @@ on:
         options:
           - development
           - standalone
+      architectures:
+        description: "CPU architectures (fewer = smaller APK)"
+        type: choice
+        required: true
+        default: "arm64 only — smallest, every phone since ~2017"
+        options:
+          - "arm64 only — smallest, every phone since ~2017"
+          - "arm64 + 32-bit ARM — for a phone that refuses the above"
+          - "all four — adds x86 for emulators, doubles the size"
   push:
     branches: [main]
     paths:
@@ -178,61 +187,66 @@ jobs:
       # ────────────────────────────────────────────────────────────────────
       # SIZE
       #
-      # The first build came out at ~270 MB, which is normal for an
-      # unconstrained debug build and still far too big to download onto a
-      # phone repeatedly. Three things make it that large, and the first is
-      # most of it:
+      # Measured on the first builds: the development APK was ~270 MB and the
+      # standalone one ~110 MB. Almost all of both is CPU architectures.
       #
-      #   Four CPU architectures. Expo's gradle.properties ships
-      #     reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64, so the
-      #     APK carries four complete copies of React Native's native
-      #     libraries. x86 and x86_64 exist for emulators -- no Android phone
-      #     sold in years uses them -- and armeabi-v7a is 32-bit, which only
-      #     matters for hardware older than roughly 2017. The template
-      #     documents -PreactNativeArchitectures as the supported override.
+      # Expo's gradle.properties ships
+      #   reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
+      # so an unconstrained APK carries FOUR complete copies of React Native's
+      # native libraries. x86 and x86_64 exist for emulators -- no Android
+      # phone sold in years uses them -- and armeabi-v7a is 32-bit, which only
+      # matters on hardware older than roughly 2017. Dropping to arm64-v8a
+      # alone removes three of the four. The template's own gradle.properties
+      # documents -PreactNativeArchitectures as the supported override, which
+      # is why this is a flag and not a patch to a file prebuild regenerates.
       #
-      #   Unstripped debug symbols in those native libraries. The release
-      #     variant strips them; a debug build cannot, because they are what
-      #     makes a native crash readable.
+      # The rest of the difference between the two builds is debug symbols in
+      # those libraries -- the release variant strips them, a debug build
+      # cannot, since they are what makes a native crash readable -- plus the
+      # dev launcher and Hermes debugger, which exist only in the development
+      # build and are the reason it is useful.
       #
-      #   The dev launcher and Hermes debugger, which only exist in the
-      #     development build and are the point of it.
+      # Minification is already on for release (the template sets
+      # android.enableMinifyInReleaseBuilds=true); resource shrinking is not,
+      # so this turns it on. Both are release-only: R8 on a debug build would
+      # strip the debugging the build exists to provide.
       #
-      # Minification is already on for release (android.enableMinifyInRelease
-      # Builds=true in the template); resource shrinking is not, so this turns
-      # it on. Both are release-only -- R8 on a debug build would strip the
-      # debugging it exists to provide.
-      #
-      # If a gate phone ever refuses the standalone APK, it is 64-bit-only
-      # fallout and armeabi-v7a is the line to check.
+      # If a phone ever answers an install with "app not installed" or dies at
+      # launch, a 32-bit-only device is the first thing to suspect: re-run with
+      # the arm64 + 32-bit ARM option.
       - name: Build the APK
         id: build
         working-directory: ${{ env.APP_DIR }}/android
         env:
           # A push-triggered run has no inputs, so it produces the build we
-          # iterate on.
+          # iterate on, at the smallest size.
           BUILD_KIND: ${{ inputs.build || 'development' }}
+          ARCH_CHOICE: ${{ inputs.architectures || 'arm64 only' }}
         run: |
           set -euo pipefail
           chmod +x gradlew
+
+          # The input is worded for whoever is clicking Run workflow, so match
+          # on its distinguishing word rather than the whole sentence.
+          case "${ARCH_CHOICE}" in
+            *"all four"*)        ARCHS=armeabi-v7a,arm64-v8a,x86,x86_64 ;;
+            *"32-bit"*)          ARCHS=arm64-v8a,armeabi-v7a ;;
+            *)                   ARCHS=arm64-v8a ;;
+          esac
+          echo "Architectures: ${ARCHS}"
+
           if [[ "${BUILD_KIND}" == "standalone" ]]; then
             # The release variant is what embeds the JavaScript bundle. Expo's
             # generated project signs release with the debug keystore unless
             # you supply your own, so this comes out installable by hand --
             # which is all a gate phone needs. Play Store signing is a
             # separate job, as it is for the Capacitor apps.
-            #
-            # Both real-phone architectures, since this is the build that goes
-            # on hardware nobody has inventoried.
             ./gradlew assembleRelease \
-              -PreactNativeArchitectures=arm64-v8a,armeabi-v7a \
+              -PreactNativeArchitectures="${ARCHS}" \
               -Pandroid.enableShrinkResourcesInReleaseBuilds=true
             APK=$(find app/build/outputs/apk/release -name '*.apk' | head -1)
           else
-            # 64-bit ARM only: this build is installed on a known phone for
-            # development, and dropping the other three removes three
-            # quarters of the native payload.
-            ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a
+            ./gradlew assembleDebug -PreactNativeArchitectures="${ARCHS}"
             APK=$(find app/build/outputs/apk/debug -name '*.apk' | head -1)
           fi
           if [[ -z "${APK}" ]]; then
@@ -246,6 +260,7 @@ jobs:
           # answerable without installing anything.
           SIZE_MB=$(( $(stat -c %s "../artifact/managesociety-guard-${BUILD_KIND}.apk") / 1048576 ))
           echo "size_mb=${SIZE_MB}" >> "$GITHUB_OUTPUT"
+          echo "archs=${ARCHS}" >> "$GITHUB_OUTPUT"
           echo "APK is ${SIZE_MB} MB"
           unzip -l "../artifact/managesociety-guard-${BUILD_KIND}.apk" \
             | awk '$4 ~ /^lib\/[^\/]+\/.+/ {split($4,p,"/"); s[p[2]]+=$1} END {for (a in s) printf "  %-14s %6.1f MB of native libraries\n", a, s[a]/1048576}' \
@@ -274,6 +289,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BUILD_KIND: ${{ inputs.build || 'development' }}
           APK_SIZE: ${{ steps.build.outputs.size_mb }}
+          APK_ARCHS: ${{ steps.build.outputs.archs }}
         run: |
           set -euo pipefail
           case "${BUILD_KIND}" in
@@ -286,7 +302,8 @@ jobs:
           {
             echo "ManageSociety Guard — native ${BUILD_KIND} build"
             echo ""
-            echo "Built from ${GITHUB_SHA} on $(date -u '+%Y-%m-%d %H:%M UTC'). ${APK_SIZE} MB."
+            echo "Built from ${GITHUB_SHA} on $(date -u '+%Y-%m-%d %H:%M UTC')."
+            echo "${APK_SIZE} MB, built for ${APK_ARCHS}."
             echo ""
             echo "Open this page on the phone and tap the .apk below to install."
             echo "Uninstall the existing \"ManageSociety Guard\" app first: this one"
@@ -331,11 +348,12 @@ jobs:
           APK_URL: ${{ steps.release.outputs.url }}
           APK_PAGE: ${{ steps.release.outputs.page }}
           APK_SIZE: ${{ steps.build.outputs.size_mb }}
+          APK_ARCHS: ${{ steps.build.outputs.archs }}
         run: |
           {
             echo "## ManageSociety Guard (native) — ${BUILD_KIND} build"
             echo ""
-            echo "APK size: **${APK_SIZE} MB**"
+            echo "APK size: **${APK_SIZE} MB** (${APK_ARCHS})"
             echo ""
             echo "**Install it:** open this on the phone and tap the \`.apk\`:"
             echo ""
